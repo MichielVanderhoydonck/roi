@@ -3,8 +3,8 @@ package service_test
 import (
 	"testing"
 
-	"github.com/michiel/roi/internal/domain"
-	"github.com/michiel/roi/internal/service"
+	"github.com/MichielVanderhoydonck/roi/internal/domain"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 )
 
 func TestFinOpsService_Calculate(t *testing.T) {

@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/michiel/roi/internal/domain"
+	"github.com/MichielVanderhoydonck/roi/internal/domain"
 )
 
 // FinOpsService implements the FinOpsCalculator interface.

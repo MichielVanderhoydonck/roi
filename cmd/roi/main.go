@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/michiel/roi/internal/tui"
+	"github.com/MichielVanderhoydonck/roi/internal/tui"
 )
 
 func main() {

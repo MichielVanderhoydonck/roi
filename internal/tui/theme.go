@@ -1,20 +1,22 @@
 package tui
 
 import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type Theme struct {
-	Primary      lipgloss.Color // Main brand color (e.g., active borders, selected items)
-	Secondary    lipgloss.Color // Secondary accents
-	Title        lipgloss.Color // Main headers
-	Success      lipgloss.Color // Positive ROI values
-	Warning      lipgloss.Color // Warnings or important stats
-	TextNormal   lipgloss.Color // Body text
-	TextDim      lipgloss.Color // De-emphasized text (help text, context)
-	BorderActive lipgloss.Color // Active panel border
-	BorderDim    lipgloss.Color // Inactive panel border
+	Primary      color.Color // Main brand color (e.g., active borders, selected items)
+	Secondary    color.Color // Secondary accents
+	Title        color.Color // Main headers
+	Success      color.Color // Positive ROI values
+	Warning      color.Color // Warnings or important stats
+	TextNormal   color.Color // Body text
+	TextDim      color.Color // De-emphasized text (help text, context)
+	BorderActive color.Color // Active panel border
+	BorderDim    color.Color // Inactive panel border
 
 	HuhTheme *huh.Theme
 }

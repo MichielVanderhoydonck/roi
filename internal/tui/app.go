@@ -5,12 +5,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/MichielVanderhoydonck/roi/internal/domain"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
+	teav1 "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/michiel/roi/internal/domain"
-	"github.com/michiel/roi/internal/service"
 )
 
 type focusState int
@@ -81,16 +82,16 @@ func NewApp() *App {
 }
 
 func (a *App) Run() error {
-	p := tea.NewProgram(a, tea.WithAltScreen())
+	p := tea.NewProgram(a)
 	_, err := p.Run()
 	return err
 }
 
 func (a *App) Init() tea.Cmd {
 	return tea.Batch(
-		a.prodForm.Init(),
-		a.relForm.Init(),
-		a.finForm.Init(),
+		wrapCmd(a.prodForm.Init()),
+		wrapCmd(a.relForm.Init()),
+		wrapCmd(a.finForm.Init()),
 	)
 }
 
@@ -169,13 +170,13 @@ func (a *App) clearActiveForm() tea.Cmd {
 	switch a.menuList.SelectedItem().(item).calc {
 	case calcProductivity:
 		a.prodForm = createProductivityForm()
-		return a.prodForm.Init()
+		return wrapCmd(a.prodForm.Init())
 	case calcReliability:
 		a.relForm = createReliabilityForm()
-		return a.relForm.Init()
+		return wrapCmd(a.relForm.Init())
 	case calcFinOps:
 		a.finForm = createFinOpsForm()
-		return a.finForm.Init()
+		return wrapCmd(a.finForm.Init())
 	}
 	return nil
 }
@@ -207,21 +208,21 @@ func (a *App) updateFocus(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.prodForm = createProductivityForm()
 			a.relForm = createReliabilityForm()
 			a.finForm = createFinOpsForm()
-			cmds = append(cmds, a.prodForm.Init(), a.relForm.Init(), a.finForm.Init())
+			cmds = append(cmds, wrapCmd(a.prodForm.Init()), wrapCmd(a.relForm.Init()), wrapCmd(a.finForm.Init()))
 			a.resultText = ""
 		}
 	case focusForm:
 		selectedItem := a.menuList.SelectedItem().(item)
 		form := a.getActiveForm()
 
-		newModel, newCmd := form.Update(msg)
+		newModel, newCmd := form.Update(mapV2MsgToV1(msg))
 		if f, ok := newModel.(*huh.Form); ok {
 			a.setActiveForm(selectedItem.calc, f)
 			if f.State == huh.StateCompleted {
 				a.calculateResult(selectedItem.calc)
 			}
 		}
-		cmds = append(cmds, newCmd)
+		cmds = append(cmds, wrapCmd(newCmd))
 	}
 
 	return a, tea.Batch(cmds...)
@@ -325,9 +326,9 @@ func (a *App) calcFinOpsResult() {
 }
 
 // View and Rendering
-func (a *App) View() string {
+func (a *App) View() tea.View {
 	if a.width == 0 {
-		return "Starting..."
+		return tea.NewView("Starting...")
 	}
 
 	headerStr := a.renderHeader()
@@ -344,7 +345,9 @@ func (a *App) View() string {
 
 	mainLayout := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
 
-	return lipgloss.JoinVertical(lipgloss.Left, headerStr, mainLayout, footerStr)
+	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, headerStr, mainLayout, footerStr))
+	v.AltScreen = true
+	return v
 }
 
 func (a *App) renderHeader() string {
@@ -517,4 +520,74 @@ func formatFormulaValue(val, fallback string) string {
 		return lipgloss.NewStyle().Foreground(DefaultTheme.TextDim).Render(fallback)
 	}
 	return lipgloss.NewStyle().Foreground(DefaultTheme.Success).Render(val)
+}
+
+// Interoperability Helpers for Bubble Tea v1 and v2
+func wrapCmd(cmd teav1.Cmd) tea.Cmd {
+	if cmd == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		msg := cmd()
+		if b, ok := msg.(teav1.BatchMsg); ok {
+			var cmds []tea.Cmd
+			for _, c := range b {
+				cmds = append(cmds, wrapCmd(c))
+			}
+			return tea.BatchMsg(cmds)
+		}
+
+		// Map standard v1 messages back to v2 if needed,
+		// but typically huh commands just return huh specific messages or nil.
+		// However, teav1.Quit needs to be mapped to tea.QuitMsg
+		if _, ok := msg.(teav1.QuitMsg); ok {
+			return tea.Quit()
+		}
+		return msg
+	}
+}
+
+func mapV2MsgToV1(msg tea.Msg) teav1.Msg {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		var k teav1.KeyMsg
+		switch msg.String() {
+		case "ctrl+c":
+			k.Type = teav1.KeyCtrlC
+		case "enter":
+			k.Type = teav1.KeyEnter
+		case "esc":
+			k.Type = teav1.KeyEsc
+		case "tab":
+			k.Type = teav1.KeyTab
+		case "shift+tab":
+			k.Type = teav1.KeyShiftTab
+		case "up":
+			k.Type = teav1.KeyUp
+		case "down":
+			k.Type = teav1.KeyDown
+		case "left":
+			k.Type = teav1.KeyLeft
+		case "right":
+			k.Type = teav1.KeyRight
+		case "backspace":
+			k.Type = teav1.KeyBackspace
+		case "delete":
+			k.Type = teav1.KeyDelete
+		case "space":
+			k.Type = teav1.KeySpace
+			k.Runes = []rune{' '}
+		default:
+			k.Type = teav1.KeyRunes
+			k.Runes = []rune(msg.Text)
+		}
+
+		if msg.Mod.Contains(tea.ModAlt) {
+			k.Alt = true
+		}
+		return k
+	case tea.WindowSizeMsg:
+		return teav1.WindowSizeMsg{Width: msg.Width, Height: msg.Height}
+	}
+	return msg
 }

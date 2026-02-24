@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/michiel/roi/internal/domain"
-	"github.com/michiel/roi/internal/service"
+	"github.com/MichielVanderhoydonck/roi/internal/domain"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 )
 
 func TestProductivityService_Calculate(t *testing.T) {

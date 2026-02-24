@@ -3,7 +3,7 @@ package service
 import (
 	"time"
 
-	"github.com/michiel/roi/internal/domain"
+	"github.com/MichielVanderhoydonck/roi/internal/domain"
 )
 
 // ProductivityService implements the ProductivityCalculator interface.
