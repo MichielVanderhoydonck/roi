@@ -57,3 +57,21 @@ type FinOpsResult struct {
 type FinOpsCalculator interface {
 	Calculate(input FinOpsInput) FinOpsResult
 }
+
+// SREToilInput holds the parameters for calculating SRE Toil Eradication ROI.
+type SREToilInput struct {
+	HoursPerWeek   float64
+	HourlyRate     float64
+	CostToAutomate float64
+}
+
+// SREToilResult holds the output of the SRE Toil Eradication ROI calculation.
+type SREToilResult struct {
+	AnnualSavings float64
+	HoursSaved    float64
+}
+
+// SREToilCalculator defines the interface for calculating SRE Toil Eradication ROI.
+type SREToilCalculator interface {
+	Calculate(input SREToilInput) SREToilResult
+}

@@ -27,6 +27,7 @@ const (
 	calcProductivity calcType = "productivity"
 	calcReliability  calcType = "reliability"
 	calcFinOps       calcType = "finops"
+	calcSRE          calcType = "sre"
 )
 
 type item struct {
@@ -42,6 +43,7 @@ type App struct {
 	prodService *service.ProductivityService
 	relService  *service.ReliabilityService
 	finService  *service.FinOpsService
+	sreService  *service.SREToilService
 
 	focus focusState
 
@@ -50,6 +52,7 @@ type App struct {
 	prodForm *huh.Form
 	relForm  *huh.Form
 	finForm  *huh.Form
+	sreForm  *huh.Form
 
 	resultText string
 	width      int
@@ -61,6 +64,7 @@ func NewApp() *App {
 		item{title: "Developer Productivity", desc: "Time Saved", calc: calcProductivity},
 		item{title: "Reliability", desc: "Cost of Downtime Avoided", calc: calcReliability},
 		item{title: "FinOps", desc: "Infrastructure Optimization", calc: calcFinOps},
+		item{title: "SRE Toil Eradication", desc: "Automating Manual Work", calc: calcSRE},
 	}
 
 	m := list.New(items, list.NewDefaultDelegate(), 0, 0)
@@ -73,11 +77,13 @@ func NewApp() *App {
 		prodService: service.NewProductivityService(),
 		relService:  service.NewReliabilityService(),
 		finService:  service.NewFinOpsService(),
+		sreService:  service.NewSREToilService(),
 		focus:       focusMenu,
 		menuList:    m,
 		prodForm:    createProductivityForm(),
 		relForm:     createReliabilityForm(),
 		finForm:     createFinOpsForm(),
+		sreForm:     createSREForm(),
 	}
 }
 
@@ -92,6 +98,7 @@ func (a *App) Init() tea.Cmd {
 		wrapCmd(a.prodForm.Init()),
 		wrapCmd(a.relForm.Init()),
 		wrapCmd(a.finForm.Init()),
+		wrapCmd(a.sreForm.Init()),
 	)
 }
 
@@ -164,6 +171,9 @@ func (a *App) resetFormState() {
 	if a.finForm.State == huh.StateCompleted {
 		a.finForm.State = huh.StateNormal
 	}
+	if a.sreForm.State == huh.StateCompleted {
+		a.sreForm.State = huh.StateNormal
+	}
 }
 
 func (a *App) clearActiveForm() tea.Cmd {
@@ -177,6 +187,9 @@ func (a *App) clearActiveForm() tea.Cmd {
 	case calcFinOps:
 		a.finForm = createFinOpsForm()
 		return wrapCmd(a.finForm.Init())
+	case calcSRE:
+		a.sreForm = createSREForm()
+		return wrapCmd(a.sreForm.Init())
 	}
 	return nil
 }
@@ -208,7 +221,8 @@ func (a *App) updateFocus(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.prodForm = createProductivityForm()
 			a.relForm = createReliabilityForm()
 			a.finForm = createFinOpsForm()
-			cmds = append(cmds, wrapCmd(a.prodForm.Init()), wrapCmd(a.relForm.Init()), wrapCmd(a.finForm.Init()))
+			a.sreForm = createSREForm()
+			cmds = append(cmds, wrapCmd(a.prodForm.Init()), wrapCmd(a.relForm.Init()), wrapCmd(a.finForm.Init()), wrapCmd(a.sreForm.Init()))
 			a.resultText = ""
 		}
 	case focusForm:
@@ -237,6 +251,8 @@ func (a *App) getActiveForm() *huh.Form {
 		return a.relForm
 	case calcFinOps:
 		return a.finForm
+	case calcSRE:
+		return a.sreForm
 	}
 	return nil
 }
@@ -249,6 +265,8 @@ func (a *App) setActiveForm(calc calcType, f *huh.Form) {
 		a.relForm = f
 	case calcFinOps:
 		a.finForm = f
+	case calcSRE:
+		a.sreForm = f
 	}
 }
 
@@ -261,6 +279,8 @@ func (a *App) calculateResult(calc calcType) {
 		a.calcReliabilityResult()
 	case calcFinOps:
 		a.calcFinOpsResult()
+	case calcSRE:
+		a.calcSREResult()
 	}
 }
 
@@ -322,6 +342,25 @@ func (a *App) calcFinOpsResult() {
 	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
 	a.resultText = fmt.Sprintf("%s\n\nAnnual Cloud Savings: %s",
 		titleStyle.Render("=== FinOps ROI Results ==="),
+		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+}
+
+func (a *App) calcSREResult() {
+	hpw, _ := strconv.ParseFloat(a.sreForm.GetString("hoursPerWeek"), 64)
+	hr, _ := strconv.ParseFloat(a.sreForm.GetString("hourlyRate"), 64)
+	cta, _ := strconv.ParseFloat(a.sreForm.GetString("costToAutomate"), 64)
+
+	res := a.sreService.Calculate(domain.SREToilInput{
+		HoursPerWeek:   hpw,
+		HourlyRate:     hr,
+		CostToAutomate: cta,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nTotal Hours Saved: %.1f\nNet Savings:       %s",
+		titleStyle.Render("=== SRE Toil ROI Results ==="),
+		res.HoursSaved,
 		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
 }
 
@@ -479,6 +518,11 @@ func (a *App) getCurrentPanelStrings() (formulaStr, contextStr string) {
 		formulaStr = getFinOpsFormula(activeForm)
 		if activeForm.State != huh.StateCompleted {
 			contextStr = getFinOpsContext(fieldKey)
+		}
+	case calcSRE:
+		formulaStr = getSREFormula(activeForm)
+		if activeForm.State != huh.StateCompleted {
+			contextStr = getSREContext(fieldKey)
 		}
 	}
 	return formulaStr, contextStr
