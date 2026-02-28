@@ -75,3 +75,22 @@ type SREToilResult struct {
 type SREToilCalculator interface {
 	Calculate(input SREToilInput) SREToilResult
 }
+
+// OnboardingInput holds the parameters for calculating Onboarding ROI.
+type OnboardingInput struct {
+	OldDays   float64
+	NewDays   float64
+	NewHires  int
+	DailyRate float64
+}
+
+// OnboardingResult holds the output of the Onboarding ROI calculation.
+type OnboardingResult struct {
+	AnnualSavings    float64
+	DaysSavedPerHire float64
+}
+
+// OnboardingCalculator defines the interface for calculating Onboarding ROI.
+type OnboardingCalculator interface {
+	Calculate(input OnboardingInput) OnboardingResult
+}

@@ -12,6 +12,8 @@ The application currently supports three main calculators:
 1. **Developer Productivity ROI**: Calculates the gross and net savings of developer productivity initiatives. Enter the time saved per execution, executions per year, hourly rate, and maintenance cost to see the annual impact.
 2. **Reliability ROI**: Calculates the cost savings of avoiding downtime. It compares the old Mean Time To Recovery (MTTR) with the new MTTR, taking into account the incident frequency and downtime cost per hour.
 3. **FinOps ROI**: Calculates annual cloud savings by comparing old and new monthly cloud infrastructure bills.
+4. **SRE Toil Eradication ROI**: Calculates savings from automating manual repetitive work based on hours per week and developer rates.
+5. **Onboarding ROI**: Calculates savings from reducing time-to-first-deploy for new hires. Compare old vs. new onboarding time based on expected new hires and daily rates.
 
 ## Development Workflow
 

@@ -28,6 +28,7 @@ const (
 	calcReliability  calcType = "reliability"
 	calcFinOps       calcType = "finops"
 	calcSRE          calcType = "sre"
+	calcOnboarding   calcType = "onboarding"
 )
 
 type item struct {
@@ -40,19 +41,21 @@ func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
 type App struct {
-	prodService *service.ProductivityService
-	relService  *service.ReliabilityService
-	finService  *service.FinOpsService
-	sreService  *service.SREToilService
+	prodService       *service.ProductivityService
+	relService        *service.ReliabilityService
+	finService        *service.FinOpsService
+	sreService        *service.SREToilService
+	onboardingService *service.OnboardingService
 
 	focus focusState
 
 	menuList list.Model
 
-	prodForm *huh.Form
-	relForm  *huh.Form
-	finForm  *huh.Form
-	sreForm  *huh.Form
+	prodForm       *huh.Form
+	relForm        *huh.Form
+	finForm        *huh.Form
+	sreForm        *huh.Form
+	onboardingForm *huh.Form
 
 	resultText string
 	width      int
@@ -65,6 +68,7 @@ func NewApp() *App {
 		item{title: "Reliability", desc: "Cost of Downtime Avoided", calc: calcReliability},
 		item{title: "FinOps", desc: "Infrastructure Optimization", calc: calcFinOps},
 		item{title: "SRE Toil Eradication", desc: "Automating Manual Work", calc: calcSRE},
+		item{title: "Onboarding ROI", desc: "Time to First Value", calc: calcOnboarding},
 	}
 
 	m := list.New(items, list.NewDefaultDelegate(), 0, 0)
@@ -74,16 +78,18 @@ func NewApp() *App {
 	m.SetFilteringEnabled(false)
 
 	return &App{
-		prodService: service.NewProductivityService(),
-		relService:  service.NewReliabilityService(),
-		finService:  service.NewFinOpsService(),
-		sreService:  service.NewSREToilService(),
-		focus:       focusMenu,
-		menuList:    m,
-		prodForm:    createProductivityForm(),
-		relForm:     createReliabilityForm(),
-		finForm:     createFinOpsForm(),
-		sreForm:     createSREForm(),
+		prodService:       service.NewProductivityService(),
+		relService:        service.NewReliabilityService(),
+		finService:        service.NewFinOpsService(),
+		sreService:        service.NewSREToilService(),
+		onboardingService: service.NewOnboardingService(),
+		focus:             focusMenu,
+		menuList:          m,
+		prodForm:          createProductivityForm(),
+		relForm:           createReliabilityForm(),
+		finForm:           createFinOpsForm(),
+		sreForm:           createSREForm(),
+		onboardingForm:    createOnboardingForm(),
 	}
 }
 
@@ -99,6 +105,7 @@ func (a *App) Init() tea.Cmd {
 		wrapCmd(a.relForm.Init()),
 		wrapCmd(a.finForm.Init()),
 		wrapCmd(a.sreForm.Init()),
+		wrapCmd(a.onboardingForm.Init()),
 	)
 }
 
@@ -174,6 +181,9 @@ func (a *App) resetFormState() {
 	if a.sreForm.State == huh.StateCompleted {
 		a.sreForm.State = huh.StateNormal
 	}
+	if a.onboardingForm.State == huh.StateCompleted {
+		a.onboardingForm.State = huh.StateNormal
+	}
 }
 
 func (a *App) clearActiveForm() tea.Cmd {
@@ -190,6 +200,9 @@ func (a *App) clearActiveForm() tea.Cmd {
 	case calcSRE:
 		a.sreForm = createSREForm()
 		return wrapCmd(a.sreForm.Init())
+	case calcOnboarding:
+		a.onboardingForm = createOnboardingForm()
+		return wrapCmd(a.onboardingForm.Init())
 	}
 	return nil
 }
@@ -222,7 +235,8 @@ func (a *App) updateFocus(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.relForm = createReliabilityForm()
 			a.finForm = createFinOpsForm()
 			a.sreForm = createSREForm()
-			cmds = append(cmds, wrapCmd(a.prodForm.Init()), wrapCmd(a.relForm.Init()), wrapCmd(a.finForm.Init()), wrapCmd(a.sreForm.Init()))
+			a.onboardingForm = createOnboardingForm()
+			cmds = append(cmds, wrapCmd(a.prodForm.Init()), wrapCmd(a.relForm.Init()), wrapCmd(a.finForm.Init()), wrapCmd(a.sreForm.Init()), wrapCmd(a.onboardingForm.Init()))
 			a.resultText = ""
 		}
 	case focusForm:
@@ -253,6 +267,8 @@ func (a *App) getActiveForm() *huh.Form {
 		return a.finForm
 	case calcSRE:
 		return a.sreForm
+	case calcOnboarding:
+		return a.onboardingForm
 	}
 	return nil
 }
@@ -267,6 +283,8 @@ func (a *App) setActiveForm(calc calcType, f *huh.Form) {
 		a.finForm = f
 	case calcSRE:
 		a.sreForm = f
+	case calcOnboarding:
+		a.onboardingForm = f
 	}
 }
 
@@ -281,6 +299,8 @@ func (a *App) calculateResult(calc calcType) {
 		a.calcFinOpsResult()
 	case calcSRE:
 		a.calcSREResult()
+	case calcOnboarding:
+		a.calcOnboardingResult()
 	}
 }
 
@@ -361,6 +381,27 @@ func (a *App) calcSREResult() {
 	a.resultText = fmt.Sprintf("%s\n\nTotal Hours Saved: %.1f\nNet Savings:       %s",
 		titleStyle.Render("=== SRE Toil ROI Results ==="),
 		res.HoursSaved,
+		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+}
+
+func (a *App) calcOnboardingResult() {
+	od, _ := strconv.ParseFloat(a.onboardingForm.GetString("oldDays"), 64)
+	nd, _ := strconv.ParseFloat(a.onboardingForm.GetString("newDays"), 64)
+	nh, _ := strconv.Atoi(a.onboardingForm.GetString("newHires"))
+	dr, _ := strconv.ParseFloat(a.onboardingForm.GetString("dailyRate"), 64)
+
+	res := a.onboardingService.Calculate(domain.OnboardingInput{
+		OldDays:   od,
+		NewDays:   nd,
+		NewHires:  nh,
+		DailyRate: dr,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nDays Saved per Hire: %.1f\nIdle Time Savings:   %s",
+		titleStyle.Render("=== Onboarding ROI Results ==="),
+		res.DaysSavedPerHire,
 		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
 }
 
@@ -523,6 +564,11 @@ func (a *App) getCurrentPanelStrings() (formulaStr, contextStr string) {
 		formulaStr = getSREFormula(activeForm)
 		if activeForm.State != huh.StateCompleted {
 			contextStr = getSREContext(fieldKey)
+		}
+	case calcOnboarding:
+		formulaStr = getOnboardingFormula(activeForm)
+		if activeForm.State != huh.StateCompleted {
+			contextStr = getOnboardingContext(fieldKey)
 		}
 	}
 	return formulaStr, contextStr
