@@ -24,11 +24,13 @@ const (
 type calcType string
 
 const (
-	calcProductivity calcType = "productivity"
-	calcReliability  calcType = "reliability"
-	calcFinOps       calcType = "finops"
-	calcSRE          calcType = "sre"
-	calcOnboarding   calcType = "onboarding"
+	calcProductivity  calcType = "productivity"
+	calcReliability   calcType = "reliability"
+	calcFinOps        calcType = "finops"
+	calcSRE           calcType = "sre"
+	calcOnboarding    calcType = "onboarding"
+	calcContextSwitch calcType = "context_switch"
+	calcCostOfDelay   calcType = "cost_of_delay"
 )
 
 type item struct {
@@ -41,21 +43,25 @@ func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
 type App struct {
-	prodService       *service.ProductivityService
-	relService        *service.ReliabilityService
-	finService        *service.FinOpsService
-	sreService        *service.SREToilService
-	onboardingService *service.OnboardingService
+	prodService          *service.ProductivityService
+	relService           *service.ReliabilityService
+	finService           *service.FinOpsService
+	sreService           *service.SREToilService
+	onboardingService    *service.OnboardingService
+	contextSwitchService *service.ContextSwitchService
+	costOfDelayService   *service.CostOfDelayService
 
 	focus focusState
 
 	menuList list.Model
 
-	prodForm       *huh.Form
-	relForm        *huh.Form
-	finForm        *huh.Form
-	sreForm        *huh.Form
-	onboardingForm *huh.Form
+	prodForm          *huh.Form
+	relForm           *huh.Form
+	finForm           *huh.Form
+	sreForm           *huh.Form
+	onboardingForm    *huh.Form
+	contextSwitchForm *huh.Form
+	costOfDelayForm   *huh.Form
 
 	resultText string
 	width      int
@@ -69,6 +75,8 @@ func NewApp() *App {
 		item{title: "FinOps", desc: "Infrastructure Optimization", calc: calcFinOps},
 		item{title: "SRE Toil Eradication", desc: "Automating Manual Work", calc: calcSRE},
 		item{title: "Onboarding ROI", desc: "Time to First Value", calc: calcOnboarding},
+		item{title: "Cost of Context Switching", desc: "The Hidden Tax", calc: calcContextSwitch},
+		item{title: "Cost of Delay", desc: "The Product Velocity Metric", calc: calcCostOfDelay},
 	}
 
 	m := list.New(items, list.NewDefaultDelegate(), 0, 0)
@@ -78,18 +86,22 @@ func NewApp() *App {
 	m.SetFilteringEnabled(false)
 
 	return &App{
-		prodService:       service.NewProductivityService(),
-		relService:        service.NewReliabilityService(),
-		finService:        service.NewFinOpsService(),
-		sreService:        service.NewSREToilService(),
-		onboardingService: service.NewOnboardingService(),
-		focus:             focusMenu,
-		menuList:          m,
-		prodForm:          createProductivityForm(),
-		relForm:           createReliabilityForm(),
-		finForm:           createFinOpsForm(),
-		sreForm:           createSREForm(),
-		onboardingForm:    createOnboardingForm(),
+		prodService:          service.NewProductivityService(),
+		relService:           service.NewReliabilityService(),
+		finService:           service.NewFinOpsService(),
+		sreService:           service.NewSREToilService(),
+		onboardingService:    service.NewOnboardingService(),
+		contextSwitchService: service.NewContextSwitchService(),
+		costOfDelayService:   service.NewCostOfDelayService(),
+		focus:                focusMenu,
+		menuList:             m,
+		prodForm:             createProductivityForm(),
+		relForm:              createReliabilityForm(),
+		finForm:              createFinOpsForm(),
+		sreForm:              createSREForm(),
+		onboardingForm:       createOnboardingForm(),
+		contextSwitchForm:    createContextSwitchForm(),
+		costOfDelayForm:      createCostOfDelayForm(),
 	}
 }
 
@@ -106,6 +118,8 @@ func (a *App) Init() tea.Cmd {
 		wrapCmd(a.finForm.Init()),
 		wrapCmd(a.sreForm.Init()),
 		wrapCmd(a.onboardingForm.Init()),
+		wrapCmd(a.contextSwitchForm.Init()),
+		wrapCmd(a.costOfDelayForm.Init()),
 	)
 }
 
@@ -184,6 +198,12 @@ func (a *App) resetFormState() {
 	if a.onboardingForm.State == huh.StateCompleted {
 		a.onboardingForm.State = huh.StateNormal
 	}
+	if a.contextSwitchForm.State == huh.StateCompleted {
+		a.contextSwitchForm.State = huh.StateNormal
+	}
+	if a.costOfDelayForm.State == huh.StateCompleted {
+		a.costOfDelayForm.State = huh.StateNormal
+	}
 }
 
 func (a *App) clearActiveForm() tea.Cmd {
@@ -203,6 +223,12 @@ func (a *App) clearActiveForm() tea.Cmd {
 	case calcOnboarding:
 		a.onboardingForm = createOnboardingForm()
 		return wrapCmd(a.onboardingForm.Init())
+	case calcContextSwitch:
+		a.contextSwitchForm = createContextSwitchForm()
+		return wrapCmd(a.contextSwitchForm.Init())
+	case calcCostOfDelay:
+		a.costOfDelayForm = createCostOfDelayForm()
+		return wrapCmd(a.costOfDelayForm.Init())
 	}
 	return nil
 }
@@ -236,7 +262,9 @@ func (a *App) updateFocus(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.finForm = createFinOpsForm()
 			a.sreForm = createSREForm()
 			a.onboardingForm = createOnboardingForm()
-			cmds = append(cmds, wrapCmd(a.prodForm.Init()), wrapCmd(a.relForm.Init()), wrapCmd(a.finForm.Init()), wrapCmd(a.sreForm.Init()), wrapCmd(a.onboardingForm.Init()))
+			a.contextSwitchForm = createContextSwitchForm()
+			a.costOfDelayForm = createCostOfDelayForm()
+			cmds = append(cmds, wrapCmd(a.prodForm.Init()), wrapCmd(a.relForm.Init()), wrapCmd(a.finForm.Init()), wrapCmd(a.sreForm.Init()), wrapCmd(a.onboardingForm.Init()), wrapCmd(a.contextSwitchForm.Init()), wrapCmd(a.costOfDelayForm.Init()))
 			a.resultText = ""
 		}
 	case focusForm:
@@ -269,6 +297,10 @@ func (a *App) getActiveForm() *huh.Form {
 		return a.sreForm
 	case calcOnboarding:
 		return a.onboardingForm
+	case calcContextSwitch:
+		return a.contextSwitchForm
+	case calcCostOfDelay:
+		return a.costOfDelayForm
 	}
 	return nil
 }
@@ -285,6 +317,10 @@ func (a *App) setActiveForm(calc calcType, f *huh.Form) {
 		a.sreForm = f
 	case calcOnboarding:
 		a.onboardingForm = f
+	case calcContextSwitch:
+		a.contextSwitchForm = f
+	case calcCostOfDelay:
+		a.costOfDelayForm = f
 	}
 }
 
@@ -301,6 +337,10 @@ func (a *App) calculateResult(calc calcType) {
 		a.calcSREResult()
 	case calcOnboarding:
 		a.calcOnboardingResult()
+	case calcContextSwitch:
+		a.calcContextSwitchResult()
+	case calcCostOfDelay:
+		a.calcCostOfDelayResult()
 	}
 }
 
@@ -403,6 +443,39 @@ func (a *App) calcOnboardingResult() {
 		titleStyle.Render("=== Onboarding ROI Results ==="),
 		res.DaysSavedPerHire,
 		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+}
+
+func (a *App) calcContextSwitchResult() {
+	ri, _ := strconv.Atoi(a.contextSwitchForm.GetString("reducedIncidents"))
+	hr, _ := strconv.ParseFloat(a.contextSwitchForm.GetString("hourlyRate"), 64)
+
+	res := a.contextSwitchService.Calculate(domain.ContextSwitchInput{
+		ReducedIncidentsPerYear: ri,
+		HourlyRate:              hr,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Warning)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nHours Saved: %.1f\nContext Switch Penalty Avoided: %s",
+		titleStyle.Render("=== Context Switch ROI Results ==="),
+		res.HoursSaved,
+		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+}
+
+func (a *App) calcCostOfDelayResult() {
+	mr, _ := strconv.ParseFloat(a.costOfDelayForm.GetString("monthlyRevenue"), 64)
+	dd, _ := strconv.ParseFloat(a.costOfDelayForm.GetString("daysDelayed"), 64)
+
+	res := a.costOfDelayService.Calculate(domain.CostOfDelayInput{
+		EstimatedMonthlyRevenue: mr,
+		DaysDelayed:             dd,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Warning)
+	a.resultText = fmt.Sprintf("%s\n\nRevenue Lost (Cost of Delay): %s",
+		titleStyle.Render("=== Cost of Delay Results ==="),
+		valStyle.Render(fmt.Sprintf("$%.2f", res.CostOfDelay)))
 }
 
 // View and Rendering
@@ -569,6 +642,16 @@ func (a *App) getCurrentPanelStrings() (formulaStr, contextStr string) {
 		formulaStr = getOnboardingFormula(activeForm)
 		if activeForm.State != huh.StateCompleted {
 			contextStr = getOnboardingContext(fieldKey)
+		}
+	case calcContextSwitch:
+		formulaStr = getContextSwitchFormula(activeForm)
+		if activeForm.State != huh.StateCompleted {
+			contextStr = getContextSwitchContext(fieldKey)
+		}
+	case calcCostOfDelay:
+		formulaStr = getCostOfDelayFormula(activeForm)
+		if activeForm.State != huh.StateCompleted {
+			contextStr = getCostOfDelayContext(fieldKey)
 		}
 	}
 	return formulaStr, contextStr

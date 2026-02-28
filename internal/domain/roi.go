@@ -94,3 +94,36 @@ type OnboardingResult struct {
 type OnboardingCalculator interface {
 	Calculate(input OnboardingInput) OnboardingResult
 }
+
+// ContextSwitchInput holds the parameters for calculating Context Switch ROI.
+type ContextSwitchInput struct {
+	ReducedIncidentsPerYear int
+	HourlyRate              float64
+}
+
+// ContextSwitchResult holds the output of the Context Switch ROI calculation.
+type ContextSwitchResult struct {
+	AnnualSavings float64
+	HoursSaved    float64
+}
+
+// ContextSwitchCalculator defines the interface for calculating Context Switch ROI.
+type ContextSwitchCalculator interface {
+	Calculate(input ContextSwitchInput) ContextSwitchResult
+}
+
+// CostOfDelayInput holds the parameters for calculating Cost of Delay ROI.
+type CostOfDelayInput struct {
+	EstimatedMonthlyRevenue float64
+	DaysDelayed             float64
+}
+
+// CostOfDelayResult holds the output of the Cost of Delay ROI calculation.
+type CostOfDelayResult struct {
+	CostOfDelay float64
+}
+
+// CostOfDelayCalculator defines the interface for calculating Cost of Delay ROI.
+type CostOfDelayCalculator interface {
+	Calculate(input CostOfDelayInput) CostOfDelayResult
+}

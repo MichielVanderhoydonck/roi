@@ -14,6 +14,8 @@ The application currently supports three main calculators:
 3. **FinOps ROI**: Calculates annual cloud savings by comparing old and new monthly cloud infrastructure bills.
 4. **SRE Toil Eradication ROI**: Calculates savings from automating manual repetitive work based on hours per week and developer rates.
 5. **Onboarding ROI**: Calculates savings from reducing time-to-first-deploy for new hires. Compare old vs. new onboarding time based on expected new hires and daily rates.
+6. **Cost of Context Switching**: Calculates the hidden tax of false-positive PagerDuty alerts, flaky tests, and the cost of flow interruption based on hourly rate.
+7. **Cost of Delay**: Calculates the actual revenue lost when infrastructure or architecture bottlenecks delay a feature launch.
 
 ## Development Workflow
 
