@@ -10,40 +10,67 @@ import (
 func TestReliabilityService_Calculate(t *testing.T) {
 	svc := service.NewReliabilityService()
 
-	input := service.ReliabilityInput{
-		OldMTTR:          2 * time.Hour,
-		NewMTTR:          30 * time.Minute,
-		IncidentsPerYear: 10,
-		DowntimeCost:     50000.0,
+	tests := []struct {
+		name                    string
+		input                   service.ReliabilityInput
+		expectedTimeSaved       time.Duration
+		expectedDowntimeSavings float64
+	}{
+		{
+			name: "Standard improvement",
+			input: service.ReliabilityInput{
+				OldMTTR:          2 * time.Hour,
+				NewMTTR:          30 * time.Minute,
+				IncidentsPerYear: 10,
+				DowntimeCost:     50000.0,
+			},
+			expectedTimeSaved:       15 * time.Hour,
+			expectedDowntimeSavings: 15.0 * 50000.0,
+		},
+		{
+			name: "No improvement (identical MTTR)",
+			input: service.ReliabilityInput{
+				OldMTTR:          1 * time.Hour,
+				NewMTTR:          1 * time.Hour,
+				IncidentsPerYear: 5,
+				DowntimeCost:     10000.0,
+			},
+			expectedTimeSaved:       0,
+			expectedDowntimeSavings: 0,
+		},
+		{
+			name: "Negative improvement (worse MTTR)",
+			input: service.ReliabilityInput{
+				OldMTTR:          30 * time.Minute,
+				NewMTTR:          2 * time.Hour,
+				IncidentsPerYear: 10,
+				DowntimeCost:     50000.0,
+			},
+			expectedTimeSaved:       0,
+			expectedDowntimeSavings: 0,
+		},
+		{
+			name: "Zero incidents",
+			input: service.ReliabilityInput{
+				OldMTTR:          2 * time.Hour,
+				NewMTTR:          1 * time.Hour,
+				IncidentsPerYear: 0,
+				DowntimeCost:     50000.0,
+			},
+			expectedTimeSaved:       0,
+			expectedDowntimeSavings: 0,
+		},
 	}
 
-	result := svc.Calculate(input)
-
-	expectedMTTRReduction := 1*time.Hour + 30*time.Minute
-	expectedTotalTimeSaved := expectedMTTRReduction * 10
-	expectedDowntimeSavings := expectedTotalTimeSaved.Hours() * 50000.0
-
-	if result.TimeSaved != expectedTotalTimeSaved {
-		t.Errorf("expected total time saved %v, got %v", expectedTotalTimeSaved, result.TimeSaved)
-	}
-
-	if result.DowntimeSavings != expectedDowntimeSavings {
-		t.Errorf("expected downtime savings %f, got %f", expectedDowntimeSavings, result.DowntimeSavings)
-	}
-
-	// Test negative savings (worse MTTR)
-	inputNegative := service.ReliabilityInput{
-		OldMTTR:          30 * time.Minute,
-		NewMTTR:          2 * time.Hour,
-		IncidentsPerYear: 10,
-		DowntimeCost:     50000.0,
-	}
-
-	resultNegative := svc.Calculate(inputNegative)
-	if resultNegative.TimeSaved != 0 {
-		t.Errorf("expected 0 time saved for negative improvement, got %v", resultNegative.TimeSaved)
-	}
-	if resultNegative.DowntimeSavings != 0 {
-		t.Errorf("expected 0 downtime savings, got %f", resultNegative.DowntimeSavings)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := svc.Calculate(tt.input)
+			if result.TimeSaved != tt.expectedTimeSaved {
+				t.Errorf("got time saved %v, expected %v", result.TimeSaved, tt.expectedTimeSaved)
+			}
+			if result.DowntimeSavings != tt.expectedDowntimeSavings {
+				t.Errorf("got downtime savings %f, expected %f", result.DowntimeSavings, tt.expectedDowntimeSavings)
+			}
+		})
 	}
 }

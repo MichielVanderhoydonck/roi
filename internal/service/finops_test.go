@@ -9,28 +9,59 @@ import (
 func TestFinOpsService_Calculate(t *testing.T) {
 	svc := service.NewFinOpsService()
 
-	input := service.FinOpsInput{
-		OldMonthlyBill: 20000.0,
-		NewMonthlyBill: 15000.0,
+	tests := []struct {
+		name     string
+		input    service.FinOpsInput
+		expected float64
+	}{
+		{
+			name: "Standard savings",
+			input: service.FinOpsInput{
+				OldMonthlyBill: 20000.0,
+				NewMonthlyBill: 15000.0,
+			},
+			expected: 60000.0,
+		},
+		{
+			name: "Bill increase (negative savings should be 0)",
+			input: service.FinOpsInput{
+				OldMonthlyBill: 15000.0,
+				NewMonthlyBill: 20000.0,
+			},
+			expected: 0,
+		},
+		{
+			name: "Identical bills",
+			input: service.FinOpsInput{
+				OldMonthlyBill: 10000.0,
+				NewMonthlyBill: 10000.0,
+			},
+			expected: 0,
+		},
+		{
+			name: "Zero bills",
+			input: service.FinOpsInput{
+				OldMonthlyBill: 0,
+				NewMonthlyBill: 0,
+			},
+			expected: 0,
+		},
+		{
+			name: "High impact project",
+			input: service.FinOpsInput{
+				OldMonthlyBill: 1000000.0,
+				NewMonthlyBill: 100000.0,
+			},
+			expected: 10800000.0,
+		},
 	}
 
-	result := svc.Calculate(input)
-
-	expectedMonthlySavings := 5000.0
-	expectedAnnualSavings := expectedMonthlySavings * 12
-
-	if result.AnnualSavings != expectedAnnualSavings {
-		t.Errorf("expected annual savings %f, got %f", expectedAnnualSavings, result.AnnualSavings)
-	}
-
-	// Negative savings test
-	inputNegative := service.FinOpsInput{
-		OldMonthlyBill: 15000.0,
-		NewMonthlyBill: 20000.0,
-	}
-
-	resultNegative := svc.Calculate(inputNegative)
-	if resultNegative.AnnualSavings != 0 {
-		t.Errorf("expected 0 annual savings for bill increase, got %f", resultNegative.AnnualSavings)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := svc.Calculate(tt.input)
+			if result.AnnualSavings != tt.expected {
+				t.Errorf("got annual savings %f, expected %f", result.AnnualSavings, tt.expected)
+			}
+		})
 	}
 }
