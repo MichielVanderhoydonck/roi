@@ -4,14 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MichielVanderhoydonck/roi/internal/domain"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
 )
 
 func TestReliabilityService_Calculate(t *testing.T) {
 	svc := service.NewReliabilityService()
 
-	input := domain.ReliabilityInput{
+	input := service.ReliabilityInput{
 		OldMTTR:          2 * time.Hour,
 		NewMTTR:          30 * time.Minute,
 		IncidentsPerYear: 10,
@@ -33,7 +32,7 @@ func TestReliabilityService_Calculate(t *testing.T) {
 	}
 
 	// Test negative savings (worse MTTR)
-	inputNegative := domain.ReliabilityInput{
+	inputNegative := service.ReliabilityInput{
 		OldMTTR:          30 * time.Minute,
 		NewMTTR:          2 * time.Hour,
 		IncidentsPerYear: 10,

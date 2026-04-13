@@ -4,14 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MichielVanderhoydonck/roi/internal/domain"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
 )
 
 func TestProductivityService_Calculate(t *testing.T) {
 	svc := service.NewProductivityService()
 
-	input := domain.ProductivityInput{
+	input := service.ProductivityInput{
 		TimeBefore:        4 * time.Hour,
 		TimeAfter:         5 * time.Minute,
 		ExecutionsPerYear: 1000,
@@ -38,7 +37,7 @@ func TestProductivityService_Calculate(t *testing.T) {
 	}
 
 	// Test case with negative savings
-	inputNegative := domain.ProductivityInput{
+	inputNegative := service.ProductivityInput{
 		TimeBefore:        5 * time.Minute,
 		TimeAfter:         4 * time.Hour,
 		ExecutionsPerYear: 1000,

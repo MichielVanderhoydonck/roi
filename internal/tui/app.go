@@ -8,7 +8,6 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/MichielVanderhoydonck/roi/internal/domain"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
 	teav1 "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -351,7 +350,7 @@ func (a *App) calcProductivityResult() {
 	hr, _ := strconv.ParseFloat(a.prodForm.GetString("hourlyRate"), 64)
 	mc, _ := strconv.ParseFloat(a.prodForm.GetString("maintenance"), 64)
 
-	res := a.prodService.Calculate(domain.ProductivityInput{
+	res := a.prodService.Calculate(service.ProductivityInput{
 		TimeBefore:        tb,
 		TimeAfter:         ta,
 		ExecutionsPerYear: execs,
@@ -374,7 +373,7 @@ func (a *App) calcReliabilityResult() {
 	inc, _ := strconv.Atoi(a.relForm.GetString("incidents"))
 	dc, _ := strconv.ParseFloat(a.relForm.GetString("downtimeCost"), 64)
 
-	res := a.relService.Calculate(domain.ReliabilityInput{
+	res := a.relService.Calculate(service.ReliabilityInput{
 		OldMTTR:          om,
 		NewMTTR:          nm,
 		IncidentsPerYear: inc,
@@ -393,7 +392,7 @@ func (a *App) calcFinOpsResult() {
 	ob, _ := strconv.ParseFloat(a.finForm.GetString("oldBill"), 64)
 	nb, _ := strconv.ParseFloat(a.finForm.GetString("newBill"), 64)
 
-	res := a.finService.Calculate(domain.FinOpsInput{
+	res := a.finService.Calculate(service.FinOpsInput{
 		OldMonthlyBill: ob,
 		NewMonthlyBill: nb,
 	})
@@ -410,7 +409,7 @@ func (a *App) calcSREResult() {
 	hr, _ := strconv.ParseFloat(a.sreForm.GetString("hourlyRate"), 64)
 	cta, _ := strconv.ParseFloat(a.sreForm.GetString("costToAutomate"), 64)
 
-	res := a.sreService.Calculate(domain.SREToilInput{
+	res := a.sreService.Calculate(service.SREToilInput{
 		HoursPerWeek:   hpw,
 		HourlyRate:     hr,
 		CostToAutomate: cta,
@@ -430,7 +429,7 @@ func (a *App) calcOnboardingResult() {
 	nh, _ := strconv.Atoi(a.onboardingForm.GetString("newHires"))
 	dr, _ := strconv.ParseFloat(a.onboardingForm.GetString("dailyRate"), 64)
 
-	res := a.onboardingService.Calculate(domain.OnboardingInput{
+	res := a.onboardingService.Calculate(service.OnboardingInput{
 		OldDays:   od,
 		NewDays:   nd,
 		NewHires:  nh,
@@ -449,7 +448,7 @@ func (a *App) calcContextSwitchResult() {
 	ri, _ := strconv.Atoi(a.contextSwitchForm.GetString("reducedIncidents"))
 	hr, _ := strconv.ParseFloat(a.contextSwitchForm.GetString("hourlyRate"), 64)
 
-	res := a.contextSwitchService.Calculate(domain.ContextSwitchInput{
+	res := a.contextSwitchService.Calculate(service.ContextSwitchInput{
 		ReducedIncidentsPerYear: ri,
 		HourlyRate:              hr,
 	})
@@ -466,7 +465,7 @@ func (a *App) calcCostOfDelayResult() {
 	mr, _ := strconv.ParseFloat(a.costOfDelayForm.GetString("monthlyRevenue"), 64)
 	dd, _ := strconv.ParseFloat(a.costOfDelayForm.GetString("daysDelayed"), 64)
 
-	res := a.costOfDelayService.Calculate(domain.CostOfDelayInput{
+	res := a.costOfDelayService.Calculate(service.CostOfDelayInput{
 		EstimatedMonthlyRevenue: mr,
 		DaysDelayed:             dd,
 	})

@@ -3,13 +3,12 @@ package service_test
 import (
 	"testing"
 
-	"github.com/MichielVanderhoydonck/roi/internal/domain"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
 )
 
 func TestSREToilService_Calculate(t *testing.T) {
 	svc := service.NewSREToilService()
-	input := domain.SREToilInput{
+	input := service.SREToilInput{
 		HoursPerWeek:   5,
 		HourlyRate:     75,
 		CostToAutomate: 1500, // e.g. 20 hours * $75

@@ -2,9 +2,26 @@ package service
 
 import (
 	"time"
-
-	"github.com/MichielVanderhoydonck/roi/internal/domain"
 )
+
+// ReliabilityInput holds the parameters for calculating Reliability ROI.
+type ReliabilityInput struct {
+	OldMTTR          time.Duration
+	NewMTTR          time.Duration
+	IncidentsPerYear int
+	DowntimeCost     float64
+}
+
+// ReliabilityResult holds the output of the Reliability ROI calculation.
+type ReliabilityResult struct {
+	DowntimeSavings float64
+	TimeSaved       time.Duration
+}
+
+// ReliabilityCalculator defines the interface for calculating Reliability ROI.
+type ReliabilityCalculator interface {
+	Calculate(input ReliabilityInput) ReliabilityResult
+}
 
 // ReliabilityService implements the ReliabilityCalculator interface.
 type ReliabilityService struct{}
@@ -16,7 +33,7 @@ func NewReliabilityService() *ReliabilityService {
 
 // Calculate computes the Reliability ROI.
 // Downtime Savings = (Old MTTR - New MTTR) * Incidents * Downtime Cost
-func (s *ReliabilityService) Calculate(input domain.ReliabilityInput) domain.ReliabilityResult {
+func (s *ReliabilityService) Calculate(input ReliabilityInput) ReliabilityResult {
 	mttrReduction := input.OldMTTR - input.NewMTTR
 	if mttrReduction < 0 {
 		mttrReduction = 0
@@ -27,7 +44,7 @@ func (s *ReliabilityService) Calculate(input domain.ReliabilityInput) domain.Rel
 
 	downtimeSavings := totalHoursSaved * input.DowntimeCost
 
-	return domain.ReliabilityResult{
+	return ReliabilityResult{
 		DowntimeSavings: downtimeSavings,
 		TimeSaved:       totalTimeSaved,
 	}

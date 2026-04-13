@@ -3,14 +3,13 @@ package service_test
 import (
 	"testing"
 
-	"github.com/MichielVanderhoydonck/roi/internal/domain"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
 )
 
 func TestFinOpsService_Calculate(t *testing.T) {
 	svc := service.NewFinOpsService()
 
-	input := domain.FinOpsInput{
+	input := service.FinOpsInput{
 		OldMonthlyBill: 20000.0,
 		NewMonthlyBill: 15000.0,
 	}
@@ -25,7 +24,7 @@ func TestFinOpsService_Calculate(t *testing.T) {
 	}
 
 	// Negative savings test
-	inputNegative := domain.FinOpsInput{
+	inputNegative := service.FinOpsInput{
 		OldMonthlyBill: 15000.0,
 		NewMonthlyBill: 20000.0,
 	}
