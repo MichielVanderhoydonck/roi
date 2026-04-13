@@ -2,7 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 
+	"charm.land/lipgloss/v2"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 	"github.com/charmbracelet/huh"
 )
 
@@ -58,4 +61,23 @@ Annual ROI ($) =
 		formatFormulaValue(hpw, "Hours per Week"),
 		formatFormulaValue(hr, "Hourly Rate"),
 		formatFormulaValue(cta, "Cost to Automate"))
+}
+
+func (a *App) calcSREResult() {
+	hpw, _ := strconv.ParseFloat(a.sreForm.GetString("hoursPerWeek"), 64)
+	hr, _ := strconv.ParseFloat(a.sreForm.GetString("hourlyRate"), 64)
+	cta, _ := strconv.ParseFloat(a.sreForm.GetString("costToAutomate"), 64)
+
+	res := a.sreService.Calculate(service.SREToilInput{
+		HoursPerWeek:   hpw,
+		HourlyRate:     hr,
+		CostToAutomate: cta,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nTotal Hours Saved: %.1f\nNet Savings:       %s",
+		titleStyle.Render("=== SRE Toil ROI Results ==="),
+		res.HoursSaved,
+		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
 }

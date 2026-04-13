@@ -2,7 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 
+	"charm.land/lipgloss/v2"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 	"github.com/charmbracelet/huh"
 )
 
@@ -50,4 +53,21 @@ Savings ($) =
   × %s/hr`,
 		formatFormulaValue(ri, "Reduced Incidents"),
 		formatFormulaValue(hr, "Hourly Rate"))
+}
+
+func (a *App) calcContextSwitchResult() {
+	ri, _ := strconv.Atoi(a.contextSwitchForm.GetString("reducedIncidents"))
+	hr, _ := strconv.ParseFloat(a.contextSwitchForm.GetString("hourlyRate"), 64)
+
+	res := a.contextSwitchService.Calculate(service.ContextSwitchInput{
+		ReducedIncidentsPerYear: ri,
+		HourlyRate:              hr,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Warning)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nHours Saved: %.1f\nContext Switch Penalty Avoided: %s",
+		titleStyle.Render("=== Context Switch ROI Results ==="),
+		res.HoursSaved,
+		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
 }

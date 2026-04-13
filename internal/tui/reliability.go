@@ -2,7 +2,11 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"charm.land/lipgloss/v2"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 	"github.com/charmbracelet/huh"
 )
 
@@ -66,4 +70,25 @@ Downtime Savings ($) =
 		formatFormulaValue(nm, "New MTTR"),
 		formatFormulaValue(inc, "Incidents per year"),
 		formatFormulaValue(dc, "Cost of Downtime per Hour"))
+}
+
+func (a *App) calcReliabilityResult() {
+	om, _ := time.ParseDuration(a.relForm.GetString("oldMTTR"))
+	nm, _ := time.ParseDuration(a.relForm.GetString("newMTTR"))
+	inc, _ := strconv.Atoi(a.relForm.GetString("incidents"))
+	dc, _ := strconv.ParseFloat(a.relForm.GetString("downtimeCost"), 64)
+
+	res := a.relService.Calculate(service.ReliabilityInput{
+		OldMTTR:          om,
+		NewMTTR:          nm,
+		IncidentsPerYear: inc,
+		DowntimeCost:     dc,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Warning)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nTotal Downtime avoided: %s\nDowntime Savings:       %s",
+		titleStyle.Render("=== Reliability ROI Results ==="),
+		res.TimeSaved.String(),
+		valStyle.Render(fmt.Sprintf("$%.2f", res.DowntimeSavings)))
 }

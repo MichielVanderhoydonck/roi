@@ -2,7 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 
+	"charm.land/lipgloss/v2"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 	"github.com/charmbracelet/huh"
 )
 
@@ -49,4 +52,20 @@ Revenue Lost ($) =
   × %s days`,
 		formatFormulaValue(mr, "Monthly Revenue"),
 		formatFormulaValue(dd, "Days Delayed"))
+}
+
+func (a *App) calcCostOfDelayResult() {
+	mr, _ := strconv.ParseFloat(a.costOfDelayForm.GetString("monthlyRevenue"), 64)
+	dd, _ := strconv.ParseFloat(a.costOfDelayForm.GetString("daysDelayed"), 64)
+
+	res := a.costOfDelayService.Calculate(service.CostOfDelayInput{
+		EstimatedMonthlyRevenue: mr,
+		DaysDelayed:             dd,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Warning)
+	a.resultText = fmt.Sprintf("%s\n\nRevenue Lost (Cost of Delay): %s",
+		titleStyle.Render("=== Cost of Delay Results ==="),
+		valStyle.Render(fmt.Sprintf("$%.2f", res.CostOfDelay)))
 }

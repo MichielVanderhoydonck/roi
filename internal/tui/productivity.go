@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"charm.land/lipgloss/v2"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 	"github.com/charmbracelet/huh"
 )
 
@@ -79,26 +81,27 @@ Annual ROI ($) =
 		formatFormulaValue(mc, "Maintenance Cost"))
 }
 
-func validateDuration(s string) error {
-	_, err := time.ParseDuration(s)
-	if err != nil {
-		return fmt.Errorf("invalid duration format")
-	}
-	return nil
-}
 
-func validateInt(s string) error {
-	v, err := strconv.Atoi(s)
-	if err != nil || v < 0 {
-		return fmt.Errorf("must be a positive integer")
-	}
-	return nil
-}
+func (a *App) calcProductivityResult() {
+	tb, _ := time.ParseDuration(a.prodForm.GetString("timeBefore"))
+	ta, _ := time.ParseDuration(a.prodForm.GetString("timeAfter"))
+	execs, _ := strconv.Atoi(a.prodForm.GetString("executions"))
+	hr, _ := strconv.ParseFloat(a.prodForm.GetString("hourlyRate"), 64)
+	mc, _ := strconv.ParseFloat(a.prodForm.GetString("maintenance"), 64)
 
-func validateFloat(s string) error {
-	v, err := strconv.ParseFloat(s, 64)
-	if err != nil || v < 0 {
-		return fmt.Errorf("must be a positive number")
-	}
-	return nil
+	res := a.prodService.Calculate(service.ProductivityInput{
+		TimeBefore:        tb,
+		TimeAfter:         ta,
+		ExecutionsPerYear: execs,
+		HourlyRate:        hr,
+		MaintenanceCost:   mc,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nTotal Time Saved: %s\nGross Savings:    %s\nNet ROI:          %s",
+		titleStyle.Render("=== Productivity ROI Results ==="),
+		res.TimeSaved.String(),
+		valStyle.Render(fmt.Sprintf("$%.2f", res.GrossSavings)),
+		valStyle.Render(fmt.Sprintf("$%.2f", res.NetROI)))
 }

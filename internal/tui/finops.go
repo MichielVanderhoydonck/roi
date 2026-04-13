@@ -2,7 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 
+	"charm.land/lipgloss/v2"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 	"github.com/charmbracelet/huh"
 )
 
@@ -49,4 +52,20 @@ Cloud Savings ($) =
   × 12 months`,
 		formatFormulaValue(ob, "Previous Monthly Bill"),
 		formatFormulaValue(nb, "New Monthly Bill"))
+}
+
+func (a *App) calcFinOpsResult() {
+	ob, _ := strconv.ParseFloat(a.finForm.GetString("oldBill"), 64)
+	nb, _ := strconv.ParseFloat(a.finForm.GetString("newBill"), 64)
+
+	res := a.finService.Calculate(service.FinOpsInput{
+		OldMonthlyBill: ob,
+		NewMonthlyBill: nb,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Secondary)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nAnnual Cloud Savings: %s",
+		titleStyle.Render("=== FinOps ROI Results ==="),
+		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
 }

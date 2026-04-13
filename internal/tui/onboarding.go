@@ -2,7 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 
+	"charm.land/lipgloss/v2"
+	"github.com/MichielVanderhoydonck/roi/internal/service"
 	"github.com/charmbracelet/huh"
 )
 
@@ -66,4 +69,25 @@ Onboarding Savings ($) =
 		formatFormulaValue(nd, "New Days"),
 		formatFormulaValue(nh, "New Hires"),
 		formatFormulaValue(dr, "Daily Rate"))
+}
+
+func (a *App) calcOnboardingResult() {
+	od, _ := strconv.ParseFloat(a.onboardingForm.GetString("oldDays"), 64)
+	nd, _ := strconv.ParseFloat(a.onboardingForm.GetString("newDays"), 64)
+	nh, _ := strconv.Atoi(a.onboardingForm.GetString("newHires"))
+	dr, _ := strconv.ParseFloat(a.onboardingForm.GetString("dailyRate"), 64)
+
+	res := a.onboardingService.Calculate(service.OnboardingInput{
+		OldDays:   od,
+		NewDays:   nd,
+		NewHires:  nh,
+		DailyRate: dr,
+	})
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	a.resultText = fmt.Sprintf("%s\n\nDays Saved per Hire: %.1f\nIdle Time Savings:   %s",
+		titleStyle.Render("=== Onboarding ROI Results ==="),
+		res.DaysSavedPerHire,
+		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
 }
