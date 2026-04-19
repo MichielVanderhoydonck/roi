@@ -9,29 +9,25 @@ import (
 )
 
 type App struct {
-	prodService          *service.ProductivityService
-	relService           *service.ReliabilityService
-	finService           *service.FinOpsService
-	sreService           *service.SREToilService
+	menuList             list.Model
 	onboardingService    *service.OnboardingService
+	finForm              *huh.Form
+	sreService           *service.SREToilService
+	prodService          *service.ProductivityService
 	contextSwitchService *service.ContextSwitchService
 	costOfDelayService   *service.CostOfDelayService
-
-	focus focusState
-
-	menuList list.Model
-
-	prodForm          *huh.Form
-	relForm           *huh.Form
-	finForm           *huh.Form
-	sreForm           *huh.Form
-	onboardingForm    *huh.Form
-	contextSwitchForm *huh.Form
-	costOfDelayForm   *huh.Form
-
-	resultText string
-	width      int
-	height     int
+	costOfDelayForm      *huh.Form
+	relService           *service.ReliabilityService
+	finService           *service.FinOpsService
+	prodForm             *huh.Form
+	relForm              *huh.Form
+	sreForm              *huh.Form
+	onboardingForm       *huh.Form
+	contextSwitchForm    *huh.Form
+	resultText           string
+	focus                focusState
+	width                int
+	height               int
 }
 
 func NewApp() *App {

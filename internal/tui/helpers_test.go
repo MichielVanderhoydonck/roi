@@ -23,23 +23,23 @@ func TestFormatFormulaValue(t *testing.T) {
 
 func TestMapV2MsgToV1(t *testing.T) {
 	tests := []struct {
-		name     string
 		v2msg    tea.Msg
 		expected teav1.Msg
+		name     string
 	}{
 		{
-			name:  "Enter",
-			v2msg: tea.KeyPressMsg{Text: "enter"},
+			name:     "Enter",
+			v2msg:    tea.KeyPressMsg{Text: "enter"},
 			expected: teav1.KeyMsg{Type: teav1.KeyEnter},
 		},
 		{
-			name:  "Esc",
-			v2msg: tea.KeyPressMsg{Text: "esc"},
+			name:     "Esc",
+			v2msg:    tea.KeyPressMsg{Text: "esc"},
 			expected: teav1.KeyMsg{Type: teav1.KeyEsc},
 		},
 		{
-			name:  "WindowSize",
-			v2msg: tea.WindowSizeMsg{Width: 100, Height: 50},
+			name:     "WindowSize",
+			v2msg:    tea.WindowSizeMsg{Width: 100, Height: 50},
 			expected: teav1.WindowSizeMsg{Width: 100, Height: 50},
 		},
 	}
