@@ -5,7 +5,7 @@ import (
 )
 
 func TestCreateCostOfDelayForm(t *testing.T) {
-	f := createCostOfDelayForm()
+	f := NewCostOfDelayCalculator().CreateForm()
 	if f == nil {
 		t.Fatal("expected form to be non-nil")
 	}
@@ -22,7 +22,7 @@ func TestGetCostOfDelayContext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := getCostOfDelayContext(tt.key)
+		ctx := NewCostOfDelayCalculator().GetContext(tt.key)
 		if !contains(ctx, tt.contains) {
 			t.Errorf("context for %s should contain %q, but got %q", tt.key, tt.contains, ctx)
 		}
@@ -30,7 +30,7 @@ func TestGetCostOfDelayContext(t *testing.T) {
 }
 
 func TestGetCostOfDelayFormula(t *testing.T) {
-	formula := getCostOfDelayFormula(nil)
+	formula := NewCostOfDelayCalculator().GetFormula(nil)
 	if !contains(formula, "Monthly Revenue") {
 		t.Errorf("expected placeholder in formula, got %s", formula)
 	}

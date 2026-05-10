@@ -9,7 +9,15 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func createCostOfDelayForm() *huh.Form {
+type CostOfDelayCalculator struct {
+	service *service.CostOfDelayService
+}
+
+func NewCostOfDelayCalculator() *CostOfDelayCalculator {
+	return &CostOfDelayCalculator{service: service.NewCostOfDelayService()}
+}
+
+func (c *CostOfDelayCalculator) CreateForm() *huh.Form {
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -27,7 +35,7 @@ func createCostOfDelayForm() *huh.Form {
 	return applyTheme(f)
 }
 
-func getCostOfDelayContext(key string) string {
+func (c *CostOfDelayCalculator) GetContext(key string) string {
 	help := map[string]string{
 		"monthlyRevenue": "What is the anticipated monthly revenue this feature will generate?\nExample: 300000",
 		"daysDelayed":    "How many days was the launch delayed due to bottlenecks?\nExample: 15",
@@ -38,7 +46,7 @@ func getCostOfDelayContext(key string) string {
 	return "Fill in the details to calculate the cost of delay."
 }
 
-func getCostOfDelayFormula(form *huh.Form) string {
+func (c *CostOfDelayCalculator) GetFormula(form *huh.Form) string {
 	var mr, dd string
 	if form != nil {
 		mr = form.GetString("monthlyRevenue")
@@ -54,18 +62,18 @@ Revenue Lost ($) =
 		formatFormulaValue(dd, "Days Delayed"))
 }
 
-func (a *App) calcCostOfDelayResult() {
-	mr, _ := strconv.ParseFloat(a.costOfDelayForm.GetString("monthlyRevenue"), 64)
-	dd, _ := strconv.ParseFloat(a.costOfDelayForm.GetString("daysDelayed"), 64)
+func (c *CostOfDelayCalculator) CalculateResult(form *huh.Form) string {
+	mr, _ := strconv.ParseFloat(form.GetString("monthlyRevenue"), 64)
+	dd, _ := strconv.ParseFloat(form.GetString("daysDelayed"), 64)
 
-	res := a.costOfDelayService.Calculate(service.CostOfDelayInput{
+	res := c.service.Calculate(service.CostOfDelayInput{
 		EstimatedMonthlyRevenue: mr,
 		DaysDelayed:             dd,
 	})
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
 	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Warning)
-	a.resultText = fmt.Sprintf("%s\n\nRevenue Lost (Cost of Delay): %s",
+	return fmt.Sprintf("%s\n\nRevenue Lost (Cost of Delay): %s",
 		titleStyle.Render("=== Cost of Delay Results ==="),
 		valStyle.Render(fmt.Sprintf("$%.2f", res.CostOfDelay)))
 }

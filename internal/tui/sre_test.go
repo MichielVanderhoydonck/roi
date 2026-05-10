@@ -5,7 +5,7 @@ import (
 )
 
 func TestCreateSREForm(t *testing.T) {
-	f := createSREForm()
+	f := NewSRECalculator().CreateForm()
 	if f == nil {
 		t.Fatal("expected form to be non-nil")
 	}
@@ -22,7 +22,7 @@ func TestGetSREContext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := getSREContext(tt.key)
+		ctx := NewSRECalculator().GetContext(tt.key)
 		if !contains(ctx, tt.contains) {
 			t.Errorf("context for %s should contain %q, but got %q", tt.key, tt.contains, ctx)
 		}
@@ -30,7 +30,7 @@ func TestGetSREContext(t *testing.T) {
 }
 
 func TestGetSREFormula(t *testing.T) {
-	formula := getSREFormula(nil)
+	formula := NewSRECalculator().GetFormula(nil)
 	if !contains(formula, "Hours per Week") {
 		t.Errorf("expected placeholder in formula, got %s", formula)
 	}

@@ -119,43 +119,11 @@ func (a *App) getCurrentPanelStrings() (formulaStr, contextStr string) {
 		}
 	}
 
-	switch selectedItem.calc {
-	case calcProductivity:
-		formulaStr = getProductivityFormula(activeForm)
-		if activeForm.State != huh.StateCompleted {
-			contextStr = getProductivityContext(fieldKey)
-		}
-	case calcReliability:
-		formulaStr = getReliabilityFormula(activeForm)
-		if activeForm.State != huh.StateCompleted {
-			contextStr = getReliabilityContext(fieldKey)
-		}
-	case calcFinOps:
-		formulaStr = getFinOpsFormula(activeForm)
-		if activeForm.State != huh.StateCompleted {
-			contextStr = getFinOpsContext(fieldKey)
-		}
-	case calcSRE:
-		formulaStr = getSREFormula(activeForm)
-		if activeForm.State != huh.StateCompleted {
-			contextStr = getSREContext(fieldKey)
-		}
-	case calcOnboarding:
-		formulaStr = getOnboardingFormula(activeForm)
-		if activeForm.State != huh.StateCompleted {
-			contextStr = getOnboardingContext(fieldKey)
-		}
-	case calcContextSwitch:
-		formulaStr = getContextSwitchFormula(activeForm)
-		if activeForm.State != huh.StateCompleted {
-			contextStr = getContextSwitchContext(fieldKey)
-		}
-	case calcCostOfDelay:
-		formulaStr = getCostOfDelayFormula(activeForm)
-		if activeForm.State != huh.StateCompleted {
-			contextStr = getCostOfDelayContext(fieldKey)
-		}
+	formulaStr = selectedItem.calc.GetFormula(activeForm)
+	if activeForm.State != huh.StateCompleted {
+		contextStr = selectedItem.calc.GetContext(fieldKey)
 	}
+
 	return formulaStr, contextStr
 }
 

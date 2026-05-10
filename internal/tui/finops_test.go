@@ -5,7 +5,7 @@ import (
 )
 
 func TestCreateFinOpsForm(t *testing.T) {
-	f := createFinOpsForm()
+	f := NewFinOpsCalculator().CreateForm()
 	if f == nil {
 		t.Fatal("expected form to be non-nil")
 	}
@@ -22,7 +22,7 @@ func TestGetFinOpsContext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := getFinOpsContext(tt.key)
+		ctx := NewFinOpsCalculator().GetContext(tt.key)
 		if !contains(ctx, tt.contains) {
 			t.Errorf("context for %s should contain %q, but got %q", tt.key, tt.contains, ctx)
 		}
@@ -30,7 +30,7 @@ func TestGetFinOpsContext(t *testing.T) {
 }
 
 func TestGetFinOpsFormula(t *testing.T) {
-	formula := getFinOpsFormula(nil)
+	formula := NewFinOpsCalculator().GetFormula(nil)
 	if !contains(formula, "Previous Monthly Bill") {
 		t.Errorf("expected placeholder in formula, got %s", formula)
 	}

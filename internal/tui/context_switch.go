@@ -9,7 +9,15 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func createContextSwitchForm() *huh.Form {
+type ContextSwitchCalculator struct {
+	service *service.ContextSwitchService
+}
+
+func NewContextSwitchCalculator() *ContextSwitchCalculator {
+	return &ContextSwitchCalculator{service: service.NewContextSwitchService()}
+}
+
+func (c *ContextSwitchCalculator) CreateForm() *huh.Form {
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -27,7 +35,7 @@ func createContextSwitchForm() *huh.Form {
 	return applyTheme(f)
 }
 
-func getContextSwitchContext(key string) string {
+func (c *ContextSwitchCalculator) GetContext(key string) string {
 	help := map[string]string{
 		"reducedIncidents": "How many fewer false alerts or flaky builds do you expect per year?\nExample: 6000",
 		"hourlyRate":       "What is the fully loaded hourly rate of an engineer?\nExample: 100",
@@ -38,7 +46,7 @@ func getContextSwitchContext(key string) string {
 	return "Fill in the details to calculate the cost of context switching."
 }
 
-func getContextSwitchFormula(form *huh.Form) string {
+func (c *ContextSwitchCalculator) GetFormula(form *huh.Form) string {
 	var ri, hr string
 	if form != nil {
 		ri = form.GetString("reducedIncidents")
@@ -55,18 +63,18 @@ Savings ($) =
 		formatFormulaValue(hr, "Hourly Rate"))
 }
 
-func (a *App) calcContextSwitchResult() {
-	ri, _ := strconv.Atoi(a.contextSwitchForm.GetString("reducedIncidents"))
-	hr, _ := strconv.ParseFloat(a.contextSwitchForm.GetString("hourlyRate"), 64)
+func (c *ContextSwitchCalculator) CalculateResult(form *huh.Form) string {
+	ri, _ := strconv.Atoi(form.GetString("reducedIncidents"))
+	hr, _ := strconv.ParseFloat(form.GetString("hourlyRate"), 64)
 
-	res := a.contextSwitchService.Calculate(service.ContextSwitchInput{
+	res := c.service.Calculate(service.ContextSwitchInput{
 		ReducedIncidentsPerYear: ri,
 		HourlyRate:              hr,
 	})
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Warning)
 	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	a.resultText = fmt.Sprintf("%s\n\nHours Saved: %.1f\nContext Switch Penalty Avoided: %s",
+	return fmt.Sprintf("%s\n\nHours Saved: %.1f\nContext Switch Penalty Avoided: %s",
 		titleStyle.Render("=== Context Switch ROI Results ==="),
 		res.HoursSaved,
 		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))

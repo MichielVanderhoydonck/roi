@@ -5,7 +5,7 @@ import (
 )
 
 func TestCreateReliabilityForm(t *testing.T) {
-	f := createReliabilityForm()
+	f := NewReliabilityCalculator().CreateForm()
 	if f == nil {
 		t.Fatal("expected form to be non-nil")
 	}
@@ -23,7 +23,7 @@ func TestGetReliabilityContext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := getReliabilityContext(tt.key)
+		ctx := NewReliabilityCalculator().GetContext(tt.key)
 		if !contains(ctx, tt.contains) {
 			t.Errorf("context for %s should contain %q, but got %q", tt.key, tt.contains, ctx)
 		}
@@ -31,7 +31,7 @@ func TestGetReliabilityContext(t *testing.T) {
 }
 
 func TestGetReliabilityFormula(t *testing.T) {
-	formula := getReliabilityFormula(nil)
+	formula := NewReliabilityCalculator().GetFormula(nil)
 	if !contains(formula, "Old MTTR") {
 		t.Errorf("expected placeholder in formula, got %s", formula)
 	}

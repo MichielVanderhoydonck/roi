@@ -1,5 +1,7 @@
 package tui
 
+import "github.com/charmbracelet/huh"
+
 type focusState int
 
 const (
@@ -7,21 +9,16 @@ const (
 	focusForm
 )
 
-type calcType string
-
-const (
-	calcProductivity  calcType = "productivity"
-	calcReliability   calcType = "reliability"
-	calcFinOps        calcType = "finops"
-	calcSRE           calcType = "sre"
-	calcOnboarding    calcType = "onboarding"
-	calcContextSwitch calcType = "context_switch"
-	calcCostOfDelay   calcType = "cost_of_delay"
-)
+type Calculator interface {
+	CreateForm() *huh.Form
+	CalculateResult(form *huh.Form) string
+	GetFormula(form *huh.Form) string
+	GetContext(fieldKey string) string
+}
 
 type item struct {
 	title, desc string
-	calc        calcType
+	calc        Calculator
 }
 
 func (i item) Title() string       { return i.title }

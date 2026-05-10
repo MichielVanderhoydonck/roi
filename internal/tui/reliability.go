@@ -10,7 +10,15 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func createReliabilityForm() *huh.Form {
+type ReliabilityCalculator struct {
+	service *service.ReliabilityService
+}
+
+func NewReliabilityCalculator() *ReliabilityCalculator {
+	return &ReliabilityCalculator{service: service.NewReliabilityService()}
+}
+
+func (c *ReliabilityCalculator) CreateForm() *huh.Form {
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -38,7 +46,7 @@ func createReliabilityForm() *huh.Form {
 	return applyTheme(f)
 }
 
-func getReliabilityContext(key string) string {
+func (c *ReliabilityCalculator) GetContext(key string) string {
 	help := map[string]string{
 		"oldMTTR":      "Mean Time To Recovery before improvements.\nFormat: \"2h\", \"45m\".",
 		"newMTTR":      "Mean Time To Recovery after implementing automated rollbacks and better observability.",
@@ -51,7 +59,7 @@ func getReliabilityContext(key string) string {
 	return "Fill in the reliability details to calculate the cost of downtime avoided."
 }
 
-func getReliabilityFormula(form *huh.Form) string {
+func (c *ReliabilityCalculator) GetFormula(form *huh.Form) string {
 	var om, nm, inc, dc string
 	if form != nil {
 		om = form.GetString("oldMTTR")
@@ -72,13 +80,13 @@ Downtime Savings ($) =
 		formatFormulaValue(dc, "Cost of Downtime per Hour"))
 }
 
-func (a *App) calcReliabilityResult() {
-	om, _ := time.ParseDuration(a.relForm.GetString("oldMTTR"))
-	nm, _ := time.ParseDuration(a.relForm.GetString("newMTTR"))
-	inc, _ := strconv.Atoi(a.relForm.GetString("incidents"))
-	dc, _ := strconv.ParseFloat(a.relForm.GetString("downtimeCost"), 64)
+func (c *ReliabilityCalculator) CalculateResult(form *huh.Form) string {
+	om, _ := time.ParseDuration(form.GetString("oldMTTR"))
+	nm, _ := time.ParseDuration(form.GetString("newMTTR"))
+	inc, _ := strconv.Atoi(form.GetString("incidents"))
+	dc, _ := strconv.ParseFloat(form.GetString("downtimeCost"), 64)
 
-	res := a.relService.Calculate(service.ReliabilityInput{
+	res := c.service.Calculate(service.ReliabilityInput{
 		OldMTTR:          om,
 		NewMTTR:          nm,
 		IncidentsPerYear: inc,
@@ -87,7 +95,7 @@ func (a *App) calcReliabilityResult() {
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Warning)
 	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	a.resultText = fmt.Sprintf("%s\n\nTotal Downtime avoided: %s\nDowntime Savings:       %s",
+	return fmt.Sprintf("%s\n\nTotal Downtime avoided: %s\nDowntime Savings:       %s",
 		titleStyle.Render("=== Reliability ROI Results ==="),
 		res.TimeSaved.String(),
 		valStyle.Render(fmt.Sprintf("$%.2f", res.DowntimeSavings)))

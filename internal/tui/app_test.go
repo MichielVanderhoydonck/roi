@@ -17,8 +17,8 @@ func TestNewApp(t *testing.T) {
 		t.Errorf("expected initial focus to be focusMenu, got %v", a.focus)
 	}
 
-	if a.prodService == nil {
-		t.Error("expected prodService to be initialized")
+	if a.activeCalc == nil {
+		t.Error("expected activeCalc to be initialized")
 	}
 }
 
@@ -58,9 +58,7 @@ func TestApp_Navigation(t *testing.T) {
 }
 
 // Helpers for TUI testing
-func strPtr(s string) *string {
-	return &s
-}
+
 
 func contains(s, substr string) bool {
 	cleanS := stripANSI(s)

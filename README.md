@@ -17,6 +17,35 @@ The application currently supports three main calculators:
 6. **Cost of Context Switching**: Calculates the hidden tax of false-positive PagerDuty alerts, flaky tests, and the cost of flow interruption based on hourly rate.
 7. **Cost of Delay**: Calculates the actual revenue lost when infrastructure or architecture bottlenecks delay a feature launch.
 
+## Architecture & Design
+
+The application is structured using principles of **Clean Architecture** and **Domain-Driven Design (DDD)**, ensuring the codebase is modular, testable, and highly maintainable.
+
+### Domain Layer (`internal/service`)
+Contains the core business logic for each calculator (e.g., `FinOpsService`, `ReliabilityService`). These services define strictly typed inputs and outputs, perform the mathematical ROI calculations, and are completely decoupled from any UI concerns. This allows the business logic to maintain 100% test coverage.
+
+### Presentation Layer (`internal/tui`)
+Handles the terminal user interface using [`bubbletea`](https://github.com/charmbracelet/bubbletea) and [`huh`](https://github.com/charmbracelet/huh) for form generation. 
+
+#### Open-Closed Principle (Polymorphism)
+The TUI layer is built around a polymorphic `Calculator` interface. Instead of the main `App` maintaining complex, hardcoded switch statements for every possible ROI tool, it relies on this interface:
+
+```go
+type Calculator interface {
+	CreateForm() *huh.Form
+	CalculateResult(form *huh.Form) string
+	GetFormula(form *huh.Form) string
+	GetContext(fieldKey string) string
+}
+```
+
+To add a new calculator, a developer simply needs to:
+1. Create a new service in `internal/service/`.
+2. Define a struct implementing the `Calculator` interface in `internal/tui/`.
+3. Register it in the `menuList` inside `NewApp()`.
+
+This ensures the core `App` logic never needs to be modified when expanding the tool's capabilities.
+
 ## Development Workflow
 
 See `Makefile` for common development tasks.

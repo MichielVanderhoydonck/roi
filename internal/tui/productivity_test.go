@@ -5,7 +5,7 @@ import (
 )
 
 func TestCreateProductivityForm(t *testing.T) {
-	f := createProductivityForm()
+	f := NewProductivityCalculator().CreateForm()
 	if f == nil {
 		t.Fatal("expected form to be non-nil")
 	}
@@ -23,7 +23,7 @@ func TestGetProductivityContext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := getProductivityContext(tt.key)
+		ctx := NewProductivityCalculator().GetContext(tt.key)
 		if !contains(ctx, tt.contains) {
 			t.Errorf("context for %s should contain %q, but got %q", tt.key, tt.contains, ctx)
 		}
@@ -31,7 +31,7 @@ func TestGetProductivityContext(t *testing.T) {
 }
 
 func TestGetProductivityFormula(t *testing.T) {
-	formula := getProductivityFormula(nil)
+	formula := NewProductivityCalculator().GetFormula(nil)
 	if !contains(formula, "Time BEFORE") {
 		t.Errorf("expected placeholder in formula, got %s", formula)
 	}

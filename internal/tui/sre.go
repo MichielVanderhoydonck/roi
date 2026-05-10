@@ -9,7 +9,15 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func createSREForm() *huh.Form {
+type SRECalculator struct {
+	service *service.SREToilService
+}
+
+func NewSRECalculator() *SRECalculator {
+	return &SRECalculator{service: service.NewSREToilService()}
+}
+
+func (c *SRECalculator) CreateForm() *huh.Form {
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -32,7 +40,7 @@ func createSREForm() *huh.Form {
 	return applyTheme(f)
 }
 
-func getSREContext(key string) string {
+func (c *SRECalculator) GetContext(key string) string {
 	help := map[string]string{
 		"hoursPerWeek":   "How many hours per week does the team spend on manual, repetitive work (toil)?\nExample: 5",
 		"hourlyRate":     "What is the fully loaded hourly cost of an engineer at your company?\nExample: 75",
@@ -44,7 +52,7 @@ func getSREContext(key string) string {
 	return "Fill in the SRE toil details to calculate your ROI."
 }
 
-func getSREFormula(form *huh.Form) string {
+func (c *SRECalculator) GetFormula(form *huh.Form) string {
 	var hpw, hr, cta string
 	if form != nil {
 		hpw = form.GetString("hoursPerWeek")
@@ -63,12 +71,12 @@ Annual ROI ($) =
 		formatFormulaValue(cta, "Cost to Automate"))
 }
 
-func (a *App) calcSREResult() {
-	hpw, _ := strconv.ParseFloat(a.sreForm.GetString("hoursPerWeek"), 64)
-	hr, _ := strconv.ParseFloat(a.sreForm.GetString("hourlyRate"), 64)
-	cta, _ := strconv.ParseFloat(a.sreForm.GetString("costToAutomate"), 64)
+func (c *SRECalculator) CalculateResult(form *huh.Form) string {
+	hpw, _ := strconv.ParseFloat(form.GetString("hoursPerWeek"), 64)
+	hr, _ := strconv.ParseFloat(form.GetString("hourlyRate"), 64)
+	cta, _ := strconv.ParseFloat(form.GetString("costToAutomate"), 64)
 
-	res := a.sreService.Calculate(service.SREToilInput{
+	res := c.service.Calculate(service.SREToilInput{
 		HoursPerWeek:   hpw,
 		HourlyRate:     hr,
 		CostToAutomate: cta,
@@ -76,7 +84,7 @@ func (a *App) calcSREResult() {
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
 	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	a.resultText = fmt.Sprintf("%s\n\nTotal Hours Saved: %.1f\nNet Savings:       %s",
+	return fmt.Sprintf("%s\n\nTotal Hours Saved: %.1f\nNet Savings:       %s",
 		titleStyle.Render("=== SRE Toil ROI Results ==="),
 		res.HoursSaved,
 		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))

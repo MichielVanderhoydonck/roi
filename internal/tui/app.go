@@ -4,41 +4,28 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/MichielVanderhoydonck/roi/internal/service"
 	"github.com/charmbracelet/huh"
 )
 
 type App struct {
-	menuList             list.Model
-	onboardingService    *service.OnboardingService
-	finForm              *huh.Form
-	sreService           *service.SREToilService
-	prodService          *service.ProductivityService
-	contextSwitchService *service.ContextSwitchService
-	costOfDelayService   *service.CostOfDelayService
-	costOfDelayForm      *huh.Form
-	relService           *service.ReliabilityService
-	finService           *service.FinOpsService
-	prodForm             *huh.Form
-	relForm              *huh.Form
-	sreForm              *huh.Form
-	onboardingForm       *huh.Form
-	contextSwitchForm    *huh.Form
-	resultText           string
-	focus                focusState
-	width                int
-	height               int
+	menuList   list.Model
+	activeCalc Calculator
+	activeForm *huh.Form
+	resultText string
+	focus      focusState
+	width      int
+	height     int
 }
 
 func NewApp() *App {
 	items := []list.Item{
-		item{title: "Developer Productivity", desc: "Time Saved", calc: calcProductivity},
-		item{title: "Reliability", desc: "Cost of Downtime Avoided", calc: calcReliability},
-		item{title: "FinOps", desc: "Infrastructure Optimization", calc: calcFinOps},
-		item{title: "SRE Toil Eradication", desc: "Automating Manual Work", calc: calcSRE},
-		item{title: "Onboarding ROI", desc: "Time to First Value", calc: calcOnboarding},
-		item{title: "Cost of Context Switching", desc: "The Hidden Tax", calc: calcContextSwitch},
-		item{title: "Cost of Delay", desc: "The Product Velocity Metric", calc: calcCostOfDelay},
+		item{title: "Developer Productivity", desc: "Time Saved", calc: NewProductivityCalculator()},
+		item{title: "Reliability", desc: "Cost of Downtime Avoided", calc: NewReliabilityCalculator()},
+		item{title: "FinOps", desc: "Infrastructure Optimization", calc: NewFinOpsCalculator()},
+		item{title: "SRE Toil Eradication", desc: "Automating Manual Work", calc: NewSRECalculator()},
+		item{title: "Onboarding ROI", desc: "Time to First Value", calc: NewOnboardingCalculator()},
+		item{title: "Cost of Context Switching", desc: "The Hidden Tax", calc: NewContextSwitchCalculator()},
+		item{title: "Cost of Delay", desc: "The Product Velocity Metric", calc: NewCostOfDelayCalculator()},
 	}
 
 	m := list.New(items, list.NewDefaultDelegate(), 0, 0)
@@ -47,23 +34,14 @@ func NewApp() *App {
 	m.SetShowStatusBar(false)
 	m.SetFilteringEnabled(false)
 
+	initialCalc := items[0].(item).calc
+	initialForm := initialCalc.CreateForm()
+
 	return &App{
-		prodService:          service.NewProductivityService(),
-		relService:           service.NewReliabilityService(),
-		finService:           service.NewFinOpsService(),
-		sreService:           service.NewSREToilService(),
-		onboardingService:    service.NewOnboardingService(),
-		contextSwitchService: service.NewContextSwitchService(),
-		costOfDelayService:   service.NewCostOfDelayService(),
-		focus:                focusMenu,
-		menuList:             m,
-		prodForm:             createProductivityForm(),
-		relForm:              createReliabilityForm(),
-		finForm:              createFinOpsForm(),
-		sreForm:              createSREForm(),
-		onboardingForm:       createOnboardingForm(),
-		contextSwitchForm:    createContextSwitchForm(),
-		costOfDelayForm:      createCostOfDelayForm(),
+		focus:      focusMenu,
+		menuList:   m,
+		activeCalc: initialCalc,
+		activeForm: initialForm,
 	}
 }
 
@@ -74,15 +52,7 @@ func (a *App) Run() error {
 }
 
 func (a *App) Init() tea.Cmd {
-	return tea.Batch(
-		wrapCmd(a.prodForm.Init()),
-		wrapCmd(a.relForm.Init()),
-		wrapCmd(a.finForm.Init()),
-		wrapCmd(a.sreForm.Init()),
-		wrapCmd(a.onboardingForm.Init()),
-		wrapCmd(a.contextSwitchForm.Init()),
-		wrapCmd(a.costOfDelayForm.Init()),
-	)
+	return wrapCmd(a.activeForm.Init())
 }
 
 // Update handles application state changes
@@ -122,77 +92,28 @@ func (a *App) handleMenuKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 
 func (a *App) handleFormKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 	if msg.String() == "esc" {
-		a.resetFormState()
+		if a.activeForm.State == huh.StateCompleted {
+			a.activeForm.State = huh.StateNormal
+		}
 		a.focus = focusMenu
 		return true, nil
 	}
 
 	// When form is completed, enter returns to menu and resets state for editing
 	if msg.String() == "enter" {
-		activeForm := a.getActiveForm()
-		if activeForm != nil && activeForm.State == huh.StateCompleted {
+		if a.activeForm != nil && a.activeForm.State == huh.StateCompleted {
 			a.focus = focusMenu
-			activeForm.State = huh.StateNormal
+			a.activeForm.State = huh.StateNormal
 			return true, nil
 		}
 	}
 
 	if msg.String() == "ctrl+r" {
-		return true, a.clearActiveForm()
+		a.activeForm = a.activeCalc.CreateForm()
+		return true, wrapCmd(a.activeForm.Init())
 	}
 
 	return false, nil
-}
-
-func (a *App) resetFormState() {
-	if a.prodForm.State == huh.StateCompleted {
-		a.prodForm.State = huh.StateNormal
-	}
-	if a.relForm.State == huh.StateCompleted {
-		a.relForm.State = huh.StateNormal
-	}
-	if a.finForm.State == huh.StateCompleted {
-		a.finForm.State = huh.StateNormal
-	}
-	if a.sreForm.State == huh.StateCompleted {
-		a.sreForm.State = huh.StateNormal
-	}
-	if a.onboardingForm.State == huh.StateCompleted {
-		a.onboardingForm.State = huh.StateNormal
-	}
-	if a.contextSwitchForm.State == huh.StateCompleted {
-		a.contextSwitchForm.State = huh.StateNormal
-	}
-	if a.costOfDelayForm.State == huh.StateCompleted {
-		a.costOfDelayForm.State = huh.StateNormal
-	}
-}
-
-func (a *App) clearActiveForm() tea.Cmd {
-	switch a.menuList.SelectedItem().(item).calc {
-	case calcProductivity:
-		a.prodForm = createProductivityForm()
-		return wrapCmd(a.prodForm.Init())
-	case calcReliability:
-		a.relForm = createReliabilityForm()
-		return wrapCmd(a.relForm.Init())
-	case calcFinOps:
-		a.finForm = createFinOpsForm()
-		return wrapCmd(a.finForm.Init())
-	case calcSRE:
-		a.sreForm = createSREForm()
-		return wrapCmd(a.sreForm.Init())
-	case calcOnboarding:
-		a.onboardingForm = createOnboardingForm()
-		return wrapCmd(a.onboardingForm.Init())
-	case calcContextSwitch:
-		a.contextSwitchForm = createContextSwitchForm()
-		return wrapCmd(a.contextSwitchForm.Init())
-	case calcCostOfDelay:
-		a.costOfDelayForm = createCostOfDelayForm()
-		return wrapCmd(a.costOfDelayForm.Init())
-	}
-	return nil
 }
 
 func (a *App) handleWindowSizeMsg(msg tea.WindowSizeMsg) {
@@ -219,25 +140,18 @@ func (a *App) updateFocus(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 
 		if a.menuList.Index() != oldIdx {
-			a.prodForm = createProductivityForm()
-			a.relForm = createReliabilityForm()
-			a.finForm = createFinOpsForm()
-			a.sreForm = createSREForm()
-			a.onboardingForm = createOnboardingForm()
-			a.contextSwitchForm = createContextSwitchForm()
-			a.costOfDelayForm = createCostOfDelayForm()
-			cmds = append(cmds, wrapCmd(a.prodForm.Init()), wrapCmd(a.relForm.Init()), wrapCmd(a.finForm.Init()), wrapCmd(a.sreForm.Init()), wrapCmd(a.onboardingForm.Init()), wrapCmd(a.contextSwitchForm.Init()), wrapCmd(a.costOfDelayForm.Init()))
+			selectedItem := a.menuList.SelectedItem().(item)
+			a.activeCalc = selectedItem.calc
+			a.activeForm = a.activeCalc.CreateForm()
+			cmds = append(cmds, wrapCmd(a.activeForm.Init()))
 			a.resultText = ""
 		}
 	case focusForm:
-		selectedItem := a.menuList.SelectedItem().(item)
-		form := a.getActiveForm()
-
-		newModel, newCmd := form.Update(mapV2MsgToV1(msg))
+		newModel, newCmd := a.activeForm.Update(mapV2MsgToV1(msg))
 		if f, ok := newModel.(*huh.Form); ok {
-			a.setActiveForm(selectedItem.calc, f)
+			a.activeForm = f
 			if f.State == huh.StateCompleted {
-				a.calculateResult(selectedItem.calc)
+				a.resultText = a.activeCalc.CalculateResult(a.activeForm)
 			}
 		}
 		cmds = append(cmds, wrapCmd(newCmd))
@@ -247,63 +161,7 @@ func (a *App) updateFocus(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) getActiveForm() *huh.Form {
-	selectedItem := a.menuList.SelectedItem().(item)
-	switch selectedItem.calc {
-	case calcProductivity:
-		return a.prodForm
-	case calcReliability:
-		return a.relForm
-	case calcFinOps:
-		return a.finForm
-	case calcSRE:
-		return a.sreForm
-	case calcOnboarding:
-		return a.onboardingForm
-	case calcContextSwitch:
-		return a.contextSwitchForm
-	case calcCostOfDelay:
-		return a.costOfDelayForm
-	}
-	return nil
-}
-
-func (a *App) setActiveForm(calc calcType, f *huh.Form) {
-	switch calc {
-	case calcProductivity:
-		a.prodForm = f
-	case calcReliability:
-		a.relForm = f
-	case calcFinOps:
-		a.finForm = f
-	case calcSRE:
-		a.sreForm = f
-	case calcOnboarding:
-		a.onboardingForm = f
-	case calcContextSwitch:
-		a.contextSwitchForm = f
-	case calcCostOfDelay:
-		a.costOfDelayForm = f
-	}
-}
-
-// calculateResult dispatches the result calculation to the appropriate domain handler.
-func (a *App) calculateResult(calc calcType) {
-	switch calc {
-	case calcProductivity:
-		a.calcProductivityResult()
-	case calcReliability:
-		a.calcReliabilityResult()
-	case calcFinOps:
-		a.calcFinOpsResult()
-	case calcSRE:
-		a.calcSREResult()
-	case calcOnboarding:
-		a.calcOnboardingResult()
-	case calcContextSwitch:
-		a.calcContextSwitchResult()
-	case calcCostOfDelay:
-		a.calcCostOfDelayResult()
-	}
+	return a.activeForm
 }
 
 // View and Rendering

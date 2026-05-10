@@ -5,7 +5,7 @@ import (
 )
 
 func TestCreateContextSwitchForm(t *testing.T) {
-	f := createContextSwitchForm()
+	f := NewContextSwitchCalculator().CreateForm()
 	if f == nil {
 		t.Fatal("expected form to be non-nil")
 	}
@@ -22,7 +22,7 @@ func TestGetContextSwitchContext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := getContextSwitchContext(tt.key)
+		ctx := NewContextSwitchCalculator().GetContext(tt.key)
 		if !contains(ctx, tt.contains) {
 			t.Errorf("context for %s should contain %q, but got %q", tt.key, tt.contains, ctx)
 		}
@@ -30,7 +30,7 @@ func TestGetContextSwitchContext(t *testing.T) {
 }
 
 func TestGetContextSwitchFormula(t *testing.T) {
-	formula := getContextSwitchFormula(nil)
+	formula := NewContextSwitchCalculator().GetFormula(nil)
 	if !contains(formula, "Reduced Incidents") {
 		t.Errorf("expected placeholder in formula, got %s", formula)
 	}

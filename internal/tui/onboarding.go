@@ -9,7 +9,15 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func createOnboardingForm() *huh.Form {
+type OnboardingCalculator struct {
+	service *service.OnboardingService
+}
+
+func NewOnboardingCalculator() *OnboardingCalculator {
+	return &OnboardingCalculator{service: service.NewOnboardingService()}
+}
+
+func (c *OnboardingCalculator) CreateForm() *huh.Form {
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -37,7 +45,7 @@ func createOnboardingForm() *huh.Form {
 	return applyTheme(f)
 }
 
-func getOnboardingContext(key string) string {
+func (c *OnboardingCalculator) GetContext(key string) string {
 	help := map[string]string{
 		"oldDays":   "Historically, how many days did it take for a new hire to make their first production deployment?\nExample: 10",
 		"newDays":   "With your improvements (e.g. automated environments), how many days does it take now?\nExample: 2",
@@ -50,7 +58,7 @@ func getOnboardingContext(key string) string {
 	return "Fill in the onboarding details to calculate your ROI."
 }
 
-func getOnboardingFormula(form *huh.Form) string {
+func (c *OnboardingCalculator) GetFormula(form *huh.Form) string {
 	var od, nd, nh, dr string
 	if form != nil {
 		od = form.GetString("oldDays")
@@ -71,13 +79,13 @@ Onboarding Savings ($) =
 		formatFormulaValue(dr, "Daily Rate"))
 }
 
-func (a *App) calcOnboardingResult() {
-	od, _ := strconv.ParseFloat(a.onboardingForm.GetString("oldDays"), 64)
-	nd, _ := strconv.ParseFloat(a.onboardingForm.GetString("newDays"), 64)
-	nh, _ := strconv.Atoi(a.onboardingForm.GetString("newHires"))
-	dr, _ := strconv.ParseFloat(a.onboardingForm.GetString("dailyRate"), 64)
+func (c *OnboardingCalculator) CalculateResult(form *huh.Form) string {
+	od, _ := strconv.ParseFloat(form.GetString("oldDays"), 64)
+	nd, _ := strconv.ParseFloat(form.GetString("newDays"), 64)
+	nh, _ := strconv.Atoi(form.GetString("newHires"))
+	dr, _ := strconv.ParseFloat(form.GetString("dailyRate"), 64)
 
-	res := a.onboardingService.Calculate(service.OnboardingInput{
+	res := c.service.Calculate(service.OnboardingInput{
 		OldDays:   od,
 		NewDays:   nd,
 		NewHires:  nh,
@@ -86,7 +94,7 @@ func (a *App) calcOnboardingResult() {
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
 	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	a.resultText = fmt.Sprintf("%s\n\nDays Saved per Hire: %.1f\nIdle Time Savings:   %s",
+	return fmt.Sprintf("%s\n\nDays Saved per Hire: %.1f\nIdle Time Savings:   %s",
 		titleStyle.Render("=== Onboarding ROI Results ==="),
 		res.DaysSavedPerHire,
 		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))

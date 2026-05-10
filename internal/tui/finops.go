@@ -9,7 +9,15 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func createFinOpsForm() *huh.Form {
+type FinOpsCalculator struct {
+	service *service.FinOpsService
+}
+
+func NewFinOpsCalculator() *FinOpsCalculator {
+	return &FinOpsCalculator{service: service.NewFinOpsService()}
+}
+
+func (c *FinOpsCalculator) CreateForm() *huh.Form {
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -27,7 +35,7 @@ func createFinOpsForm() *huh.Form {
 	return applyTheme(f)
 }
 
-func getFinOpsContext(key string) string {
+func (c *FinOpsCalculator) GetContext(key string) string {
 	help := map[string]string{
 		"oldBill": "Your average monthly cloud infrastructure bill before optimization.",
 		"newBill": "Your target or actual monthly cloud bill after right-sizing or spinning down resources.",
@@ -38,7 +46,7 @@ func getFinOpsContext(key string) string {
 	return "Fill in your cloud bills to calculate infrastructure savings."
 }
 
-func getFinOpsFormula(form *huh.Form) string {
+func (c *FinOpsCalculator) GetFormula(form *huh.Form) string {
 	var ob, nb string
 	if form != nil {
 		ob = form.GetString("oldBill")
@@ -54,18 +62,18 @@ Cloud Savings ($) =
 		formatFormulaValue(nb, "New Monthly Bill"))
 }
 
-func (a *App) calcFinOpsResult() {
-	ob, _ := strconv.ParseFloat(a.finForm.GetString("oldBill"), 64)
-	nb, _ := strconv.ParseFloat(a.finForm.GetString("newBill"), 64)
+func (c *FinOpsCalculator) CalculateResult(form *huh.Form) string {
+	ob, _ := strconv.ParseFloat(form.GetString("oldBill"), 64)
+	nb, _ := strconv.ParseFloat(form.GetString("newBill"), 64)
 
-	res := a.finService.Calculate(service.FinOpsInput{
+	res := c.service.Calculate(service.FinOpsInput{
 		OldMonthlyBill: ob,
 		NewMonthlyBill: nb,
 	})
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Secondary)
 	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	a.resultText = fmt.Sprintf("%s\n\nAnnual Cloud Savings: %s",
+	return fmt.Sprintf("%s\n\nAnnual Cloud Savings: %s",
 		titleStyle.Render("=== FinOps ROI Results ==="),
 		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
 }

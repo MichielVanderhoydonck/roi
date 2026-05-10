@@ -5,7 +5,7 @@ import (
 )
 
 func TestCreateOnboardingForm(t *testing.T) {
-	f := createOnboardingForm()
+	f := NewOnboardingCalculator().CreateForm()
 	if f == nil {
 		t.Fatal("expected form to be non-nil")
 	}
@@ -22,7 +22,7 @@ func TestGetOnboardingContext(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := getOnboardingContext(tt.key)
+		ctx := NewOnboardingCalculator().GetContext(tt.key)
 		if !contains(ctx, tt.contains) {
 			t.Errorf("context for %s should contain %q, but got %q", tt.key, tt.contains, ctx)
 		}
@@ -30,7 +30,7 @@ func TestGetOnboardingContext(t *testing.T) {
 }
 
 func TestGetOnboardingFormula(t *testing.T) {
-	formula := getOnboardingFormula(nil)
+	formula := NewOnboardingCalculator().GetFormula(nil)
 	if !contains(formula, "Old Days") {
 		t.Errorf("expected placeholder in formula, got %s", formula)
 	}

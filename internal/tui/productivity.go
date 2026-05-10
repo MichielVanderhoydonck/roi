@@ -10,7 +10,15 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func createProductivityForm() *huh.Form {
+type ProductivityCalculator struct {
+	service *service.ProductivityService
+}
+
+func NewProductivityCalculator() *ProductivityCalculator {
+	return &ProductivityCalculator{service: service.NewProductivityService()}
+}
+
+func (c *ProductivityCalculator) CreateForm() *huh.Form {
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -43,7 +51,7 @@ func createProductivityForm() *huh.Form {
 	return applyTheme(f)
 }
 
-func getProductivityContext(key string) string {
+func (c *ProductivityCalculator) GetContext(key string) string {
 	help := map[string]string{
 		"timeBefore":  "How long did this process take manually before your automation?\nFormat: Valid time units are \"h\", \"m\", \"s\". Examples: \"4h\", \"30m\".",
 		"timeAfter":   "How long does the process take now with your internal developer platform or automation?\nFormat: Valid time units are \"h\", \"m\", \"s\".",
@@ -57,7 +65,7 @@ func getProductivityContext(key string) string {
 	return "Fill in the productivity details to calculate your ROI."
 }
 
-func getProductivityFormula(form *huh.Form) string {
+func (c *ProductivityCalculator) GetFormula(form *huh.Form) string {
 	var tb, ta, execs, hr, mc string
 	if form != nil {
 		tb = form.GetString("timeBefore")
@@ -81,15 +89,14 @@ Annual ROI ($) =
 		formatFormulaValue(mc, "Maintenance Cost"))
 }
 
+func (c *ProductivityCalculator) CalculateResult(form *huh.Form) string {
+	tb, _ := time.ParseDuration(form.GetString("timeBefore"))
+	ta, _ := time.ParseDuration(form.GetString("timeAfter"))
+	execs, _ := strconv.Atoi(form.GetString("executions"))
+	hr, _ := strconv.ParseFloat(form.GetString("hourlyRate"), 64)
+	mc, _ := strconv.ParseFloat(form.GetString("maintenance"), 64)
 
-func (a *App) calcProductivityResult() {
-	tb, _ := time.ParseDuration(a.prodForm.GetString("timeBefore"))
-	ta, _ := time.ParseDuration(a.prodForm.GetString("timeAfter"))
-	execs, _ := strconv.Atoi(a.prodForm.GetString("executions"))
-	hr, _ := strconv.ParseFloat(a.prodForm.GetString("hourlyRate"), 64)
-	mc, _ := strconv.ParseFloat(a.prodForm.GetString("maintenance"), 64)
-
-	res := a.prodService.Calculate(service.ProductivityInput{
+	res := c.service.Calculate(service.ProductivityInput{
 		TimeBefore:        tb,
 		TimeAfter:         ta,
 		ExecutionsPerYear: execs,
@@ -99,7 +106,7 @@ func (a *App) calcProductivityResult() {
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
 	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	a.resultText = fmt.Sprintf("%s\n\nTotal Time Saved: %s\nGross Savings:    %s\nNet ROI:          %s",
+	return fmt.Sprintf("%s\n\nTotal Time Saved: %s\nGross Savings:    %s\nNet ROI:          %s",
 		titleStyle.Render("=== Productivity ROI Results ==="),
 		res.TimeSaved.String(),
 		valStyle.Render(fmt.Sprintf("$%.2f", res.GrossSavings)),
