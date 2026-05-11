@@ -26,6 +26,7 @@ func NewApp() *App {
 		item{title: "Onboarding ROI", desc: "Time to First Value", calc: NewOnboardingCalculator()},
 		item{title: "Cost of Context Switching", desc: "The Hidden Tax", calc: NewContextSwitchCalculator()},
 		item{title: "Cost of Delay", desc: "The Product Velocity Metric", calc: NewCostOfDelayCalculator()},
+		item{title: "DORA AI ROI", desc: "ROI of AI-assisted Software Development", calc: NewDORAAICalculator()},
 	}
 
 	m := list.New(items, list.NewDefaultDelegate(), 0, 0)
