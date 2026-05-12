@@ -7,7 +7,7 @@ A terminal-based user interface (TUI) for calculating returns on investment (ROI
 
 ## Features & Use Cases
 
-The application currently supports three main calculators:
+The application currently supports eight main calculators:
 
 1. **Developer Productivity ROI**: Calculates the gross and net savings of developer productivity initiatives. Enter the time saved per execution, executions per year, hourly rate, and maintenance cost to see the annual impact.
 2. **Reliability ROI**: Calculates the cost savings of avoiding downtime. It compares the old Mean Time To Recovery (MTTR) with the new MTTR, taking into account the incident frequency and downtime cost per hour.
@@ -16,6 +16,7 @@ The application currently supports three main calculators:
 5. **Onboarding ROI**: Calculates savings from reducing time-to-first-deploy for new hires. Compare old vs. new onboarding time based on expected new hires and daily rates.
 6. **Cost of Context Switching**: Calculates the hidden tax of false-positive PagerDuty alerts, flaky tests, and the cost of flow interruption based on hourly rate.
 7. **Cost of Delay**: Calculates the actual revenue lost when infrastructure or architecture bottlenecks delay a feature launch.
+8. **DORA AI ROI**: Analyzes the impact of AI-assisted software development tools. Calculates first-year net benefit, ROI percentage, and payback period by weighing hard costs (licenses, infrastructure, training) and J-curve productivity drops against headcount reinvestment capacity, revenue impact from faster feature delivery, and downtime cost mitigation.
 
 ## Architecture & Design
 
@@ -33,11 +34,14 @@ The TUI layer is built around a polymorphic `Calculator` interface. Instead of t
 ```go
 type Calculator interface {
 	CreateForm() *huh.Form
-	CalculateResult(form *huh.Form) string
+	CalculateResult(form *huh.Form) (string, Sentiment)
 	GetFormula(form *huh.Form) string
 	GetContext(fieldKey string) string
+	Reset()
 }
 ```
+
+The interface supports fluid layout updates, state resetting between context switches, and dynamic color-coded feedback via `Sentiment` returns (e.g., success vs. critical alert colors).
 
 To add a new calculator, a developer simply needs to:
 1. Create a new service in `internal/service/`.
@@ -48,13 +52,38 @@ This ensures the core `App` logic never needs to be modified when expanding the 
 
 ## Development Workflow
 
-See `Makefile` for common development tasks.
+The project includes a `Makefile` to simplify common development tasks. Alternatively, standard `go` commands can be used directly.
+
+### Using Make
+
+* **Build binary**: `make build` (compiles to `bin/roi`)
+* **Run locally**: `make run`
+* **Run tests**: `make test`
+* **Format code**: `make fmt`
+* **Static analysis**: `make vet`
+* **Clean artifacts**: `make clean`
+
+### Using Go Directly
+
+```bash
+# Build and execute
+go build -o roi ./cmd/roi && ./roi
+
+# Or run directly without saving binary
+go run ./cmd/roi
+```
 
 ## Usage
 
-Once running, use your keyboard to navigate:
-* `up/down` or `j/k`: Navigate the main menu.
-* `enter` / `tab` / `right`: Select a calculator and focus the form.
-* `esc`: Go back to the main menu.
-* `ctrl+r`: Clear the active form.
+The application features a real-time updating layout. As inputs are entered or modified, the formula, context panel, and ROI calculation outcomes update instantly with color-coded feedback (green borders/text for positive ROI, red/critical for negative ROI).
+
+### Main Menu Navigation
+* `up/down` or `j/k`: Navigate the list of calculators.
+* `enter` / `tab` / `right`: Select a calculator and focus its interactive input form.
 * `ctrl+c`: Quit the application.
+
+### Form Navigation & Input
+* `enter` / `tab` / `down`: Move to the next input field.
+* `shift+tab` / `up`: Move to the previous input field.
+* `esc`: Unfocus the form and return to the main menu.
+* `ctrl+r`: Reset the active form to its default values.
