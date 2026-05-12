@@ -6,15 +6,19 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 type FinOpsCalculator struct {
 	service *service.FinOpsService
+	oldBill string
+	newBill string
 }
 
 func NewFinOpsCalculator() *FinOpsCalculator {
-	return &FinOpsCalculator{service: service.NewFinOpsService()}
+	return &FinOpsCalculator{
+		service: service.NewFinOpsService(),
+	}
 }
 
 func (c *FinOpsCalculator) CreateForm() *huh.Form {
@@ -24,11 +28,13 @@ func (c *FinOpsCalculator) CreateForm() *huh.Form {
 				Key("oldBill").
 				Title("Previous Monthly Cloud Bill ($)").
 				Placeholder("e.g. 20000").
+				Value(&c.oldBill).
 				Validate(validateFloat),
 			huh.NewInput().
 				Key("newBill").
 				Title("New Monthly Cloud Bill ($)").
 				Placeholder("e.g. 15000").
+				Value(&c.newBill).
 				Validate(validateFloat),
 		),
 	).WithShowHelp(false)
@@ -47,11 +53,8 @@ func (c *FinOpsCalculator) GetContext(key string) string {
 }
 
 func (c *FinOpsCalculator) GetFormula(form *huh.Form) string {
-	var ob, nb string
-	if form != nil {
-		ob = form.GetString("oldBill")
-		nb = form.GetString("newBill")
-	}
+	ob := getFormField(form, "oldBill", c.oldBill)
+	nb := getFormField(form, "newBill", c.newBill)
 
 	return fmt.Sprintf(`FinOps ROI (Infrastructure Optimization)
 
@@ -62,18 +65,42 @@ Cloud Savings ($) =
 		formatFormulaValue(nb, "New Monthly Bill"))
 }
 
-func (c *FinOpsCalculator) CalculateResult(form *huh.Form) string {
-	ob, _ := strconv.ParseFloat(form.GetString("oldBill"), 64)
-	nb, _ := strconv.ParseFloat(form.GetString("newBill"), 64)
+func (c *FinOpsCalculator) CalculateResult(form *huh.Form) (string, Sentiment) {
+	obStr := getFormField(form, "oldBill", c.oldBill)
+	nbStr := getFormField(form, "newBill", c.newBill)
+
+	if obStr == "" || nbStr == "" {
+		return "", SentimentNone
+	}
+
+	ob, _ := strconv.ParseFloat(obStr, 64)
+	nb, _ := strconv.ParseFloat(nbStr, 64)
 
 	res := c.service.Calculate(service.FinOpsInput{
 		OldMonthlyBill: ob,
 		NewMonthlyBill: nb,
 	})
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Secondary)
-	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	return fmt.Sprintf("%s\n\nAnnual Cloud Savings: %s",
-		titleStyle.Render("=== FinOps ROI Results ==="),
-		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+	sentiment := SentimentGood
+	roiColor := DefaultTheme.Success
+	if ob <= nb {
+		sentiment = SentimentBad
+		roiColor = DefaultTheme.Critical
+	}
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Secondary).MarginBottom(1)
+	roiStyle := lipgloss.NewStyle().Foreground(roiColor).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(DefaultTheme.TextNormal)
+
+	str := fmt.Sprintf("%s\n\n%s %s\n%s %s",
+		titleStyle.Render("󰠩 FINOPS OPTIMIZATION"),
+		labelStyle.Render("Monthly Savings:"), roiStyle.Render(fmt.Sprintf("$%.2f", ob-nb)),
+		labelStyle.Render("Annual Cloud Savings:"), roiStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+
+	return str, sentiment
+}
+
+func (c *FinOpsCalculator) Reset() {
+	c.oldBill = ""
+	c.newBill = ""
 }

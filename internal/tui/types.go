@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/charmbracelet/huh"
+import "charm.land/huh/v2"
 
 type focusState int
 
@@ -9,11 +9,20 @@ const (
 	focusForm
 )
 
+type Sentiment int
+
+const (
+	SentimentNone Sentiment = iota
+	SentimentGood
+	SentimentBad
+)
+
 type Calculator interface {
 	CreateForm() *huh.Form
-	CalculateResult(form *huh.Form) string
+	CalculateResult(form *huh.Form) (string, Sentiment)
 	GetFormula(form *huh.Form) string
 	GetContext(fieldKey string) string
+	Reset()
 }
 
 type item struct {

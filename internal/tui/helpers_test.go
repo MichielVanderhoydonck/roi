@@ -2,9 +2,6 @@ package tui
 
 import (
 	"testing"
-
-	tea "charm.land/bubbletea/v2"
-	teav1 "github.com/charmbracelet/bubbletea"
 )
 
 func TestFormatFormulaValue(t *testing.T) {
@@ -18,46 +15,6 @@ func TestFormatFormulaValue(t *testing.T) {
 	res = formatFormulaValue("100", "Placeholder")
 	if res == "" {
 		t.Error("expected non-empty string")
-	}
-}
-
-func TestMapV2MsgToV1(t *testing.T) {
-	tests := []struct {
-		v2msg    tea.Msg
-		expected teav1.Msg
-		name     string
-	}{
-		{
-			name:     "Enter",
-			v2msg:    tea.KeyPressMsg{Text: "enter"},
-			expected: teav1.KeyMsg{Type: teav1.KeyEnter},
-		},
-		{
-			name:     "Esc",
-			v2msg:    tea.KeyPressMsg{Text: "esc"},
-			expected: teav1.KeyMsg{Type: teav1.KeyEsc},
-		},
-		{
-			name:     "WindowSize",
-			v2msg:    tea.WindowSizeMsg{Width: 100, Height: 50},
-			expected: teav1.WindowSizeMsg{Width: 100, Height: 50},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := mapV2MsgToV1(tt.v2msg)
-			// Simple check since comparing interface types with complex structs can be tricky
-			if tt.name == "WindowSize" {
-				if g, ok := got.(teav1.WindowSizeMsg); !ok || g.Width != 100 {
-					t.Errorf("got %v, expected %v", got, tt.expected)
-				}
-			} else {
-				if g, ok := got.(teav1.KeyMsg); !ok || g.Type != tt.expected.(teav1.KeyMsg).Type {
-					t.Errorf("got %v, expected %v", got, tt.expected)
-				}
-			}
-		})
 	}
 }
 

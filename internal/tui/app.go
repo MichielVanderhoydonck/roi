@@ -4,17 +4,18 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 type App struct {
-	menuList   list.Model
-	activeCalc Calculator
-	activeForm *huh.Form
-	resultText string
-	focus      focusState
-	width      int
-	height     int
+	menuList        list.Model
+	activeCalc      Calculator
+	activeForm      *huh.Form
+	resultText      string
+	resultSentiment Sentiment
+	focus           focusState
+	width           int
+	height          int
 }
 
 func NewApp() *App {
@@ -37,12 +38,15 @@ func NewApp() *App {
 
 	initialCalc := items[0].(item).calc
 	initialForm := initialCalc.CreateForm()
+	initialResultText, initialSentiment := initialCalc.CalculateResult(initialForm)
 
 	return &App{
-		focus:      focusMenu,
-		menuList:   m,
-		activeCalc: initialCalc,
-		activeForm: initialForm,
+		focus:           focusMenu,
+		menuList:        m,
+		activeCalc:      initialCalc,
+		activeForm:      initialForm,
+		resultText:      initialResultText,
+		resultSentiment: initialSentiment,
 	}
 }
 
@@ -53,17 +57,17 @@ func (a *App) Run() error {
 }
 
 func (a *App) Init() tea.Cmd {
-	return wrapCmd(a.activeForm.Init())
+	return a.activeForm.Init()
 }
 
 // Update handles application state changes
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return a, tea.Quit
 		}
-		if handled, cmd := a.handleKeyMsg(msg); handled {
+		if handled, cmd := a.handleKeyPressMsg(msg); handled {
 			return a, cmd
 		}
 	case tea.WindowSizeMsg:
@@ -73,7 +77,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a.updateFocus(msg)
 }
 
-func (a *App) handleKeyMsg(msg tea.KeyMsg) (bool, tea.Cmd) {
+func (a *App) handleKeyPressMsg(msg tea.KeyPressMsg) (bool, tea.Cmd) {
 	switch a.focus {
 	case focusMenu:
 		return a.handleMenuKey(msg)
@@ -83,35 +87,28 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (bool, tea.Cmd) {
 	return false, nil
 }
 
-func (a *App) handleMenuKey(msg tea.KeyMsg) (bool, tea.Cmd) {
+func (a *App) handleMenuKey(msg tea.KeyPressMsg) (bool, tea.Cmd) {
 	if msg.String() == "enter" || msg.String() == "right" || msg.String() == "tab" {
 		a.focus = focusForm
-		return true, nil
+		// Ensure form is interactive when we switch to it
+		if a.activeForm.State == huh.StateCompleted {
+			a.activeForm.State = huh.StateNormal
+		}
+		return true, a.activeForm.Init()
 	}
 	return false, nil
 }
 
-func (a *App) handleFormKey(msg tea.KeyMsg) (bool, tea.Cmd) {
+func (a *App) handleFormKey(msg tea.KeyPressMsg) (bool, tea.Cmd) {
 	if msg.String() == "esc" {
-		if a.activeForm.State == huh.StateCompleted {
-			a.activeForm.State = huh.StateNormal
-		}
+		a.activeForm.State = huh.StateNormal
 		a.focus = focusMenu
 		return true, nil
 	}
 
-	// When form is completed, enter returns to menu and resets state for editing
-	if msg.String() == "enter" {
-		if a.activeForm != nil && a.activeForm.State == huh.StateCompleted {
-			a.focus = focusMenu
-			a.activeForm.State = huh.StateNormal
-			return true, nil
-		}
-	}
-
 	if msg.String() == "ctrl+r" {
 		a.activeForm = a.activeCalc.CreateForm()
-		return true, wrapCmd(a.activeForm.Init())
+		return true, a.activeForm.Init()
 	}
 
 	return false, nil
@@ -121,13 +118,21 @@ func (a *App) handleWindowSizeMsg(msg tea.WindowSizeMsg) {
 	a.width = msg.Width
 	a.height = msg.Height
 
-	mainHeight := max(0, a.height-2)
+	mainHeight := max(0, a.height-8)
 	h, v := lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).GetFrameSize()
 
 	leftWidth := max(30, min(45, a.width*30/100))
 	leftContentWidth := max(0, leftWidth-h)
 
 	a.menuList.SetSize(leftContentWidth, mainHeight-v)
+
+	if a.activeForm != nil {
+		remaining := max(0, a.width-leftWidth)
+		middleWidth := remaining * 55 / 100
+		middleContentWidth := max(0, middleWidth-h)
+		a.activeForm.WithWidth(middleContentWidth)
+		a.activeForm.Update(msg)
+	}
 }
 
 func (a *App) updateFocus(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -143,19 +148,41 @@ func (a *App) updateFocus(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.menuList.Index() != oldIdx {
 			selectedItem := a.menuList.SelectedItem().(item)
 			a.activeCalc = selectedItem.calc
+			a.activeCalc.Reset()
 			a.activeForm = a.activeCalc.CreateForm()
-			cmds = append(cmds, wrapCmd(a.activeForm.Init()))
-			a.resultText = ""
+			if a.width > 0 {
+				h, _ := lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).GetFrameSize()
+				leftWidth := max(30, min(45, a.width*30/100))
+				remaining := max(0, a.width-leftWidth)
+				middleWidth := remaining * 55 / 100
+				middleContentWidth := max(0, middleWidth-h)
+				a.activeForm.WithWidth(middleContentWidth)
+			}
+			cmds = append(cmds, a.activeForm.Init())
+			a.resultText, a.resultSentiment = a.activeCalc.CalculateResult(a.activeForm)
 		}
 	case focusForm:
-		newModel, newCmd := a.activeForm.Update(mapV2MsgToV1(msg))
+		newModel, newCmd := a.activeForm.Update(msg)
 		if f, ok := newModel.(*huh.Form); ok {
 			a.activeForm = f
+			// Update result in real-time
+			a.resultText, a.resultSentiment = a.activeCalc.CalculateResult(a.activeForm)
+
+			// If the form completed, refresh it from persistent values so it loops perfectly without clearing inputs.
 			if f.State == huh.StateCompleted {
-				a.resultText = a.activeCalc.CalculateResult(a.activeForm)
+				a.activeForm = a.activeCalc.CreateForm()
+				if a.width > 0 {
+					h, _ := lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).GetFrameSize()
+					leftWidth := max(30, min(45, a.width*30/100))
+					remaining := max(0, a.width-leftWidth)
+					middleWidth := remaining * 55 / 100
+					middleContentWidth := max(0, middleWidth-h)
+					a.activeForm.WithWidth(middleContentWidth)
+				}
+				cmds = append(cmds, a.activeForm.Init())
 			}
 		}
-		cmds = append(cmds, wrapCmd(newCmd))
+		cmds = append(cmds, newCmd)
 	}
 
 	return a, tea.Batch(cmds...)
@@ -178,12 +205,21 @@ func (a *App) View() tea.View {
 	footerHeight := lipgloss.Height(footerStr)
 	mainHeight := max(0, a.height-headerHeight-footerHeight)
 
-	leftWidth, rightWidth := a.calculateLayoutWidths()
+	formulaStr, contextStr := a.getCurrentPanelStrings()
 
-	leftPanel := a.renderLeftPanel(leftWidth, mainHeight)
-	rightPanel := a.renderRightPanel(rightWidth, mainHeight)
+	contextPanel := a.renderContextPanel(a.width, contextStr)
+	contextPanelHeight := lipgloss.Height(contextPanel)
 
-	mainLayout := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
+	topPanelsHeight := max(0, mainHeight-contextPanelHeight)
+
+	leftWidth, middleWidth, rightWidth := a.calculateLayoutWidths()
+
+	leftPanel := a.renderLeftPanel(leftWidth, topPanelsHeight)
+	calculationPanel := a.renderCalculationPanel(middleWidth, topPanelsHeight, formulaStr)
+	resultPanel := a.renderResultPanel(rightWidth, topPanelsHeight)
+
+	topLayout := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, calculationPanel, resultPanel)
+	mainLayout := lipgloss.JoinVertical(lipgloss.Left, topLayout, contextPanel)
 
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, headerStr, mainLayout, footerStr))
 	v.AltScreen = true

@@ -59,6 +59,36 @@ func TestApp_Navigation(t *testing.T) {
 
 // Helpers for TUI testing
 
+func TestApp_FormPlaceholderVisibility(t *testing.T) {
+	a := NewApp()
+
+	// Send WindowSizeMsg with a typical layout size
+	a.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Generate View
+	v := a.View()
+
+	// Verify full placeholder exists instead of just truncated 'e'
+	if !contains(v.Content, "e.g. 4h, 30m") {
+		t.Errorf("expected view content to contain full placeholder 'e.g. 4h, 30m'")
+	}
+}
+
+func TestApp_ResultPersistence(t *testing.T) {
+	a := NewApp()
+	a.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Enter form
+	a.Update(tea.KeyPressMsg{Text: "enter"})
+
+	expected := "Valid ROI Computed Result"
+	a.resultText = expected
+
+	v := a.View()
+	if !contains(v.Content, expected) {
+		t.Errorf("expected view to persist result text")
+	}
+}
 
 func contains(s, substr string) bool {
 	cleanS := stripANSI(s)
