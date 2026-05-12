@@ -6,15 +6,19 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 type ContextSwitchCalculator struct {
-	service *service.ContextSwitchService
+	service          *service.ContextSwitchService
+	reducedIncidents string
+	hourlyRate       string
 }
 
 func NewContextSwitchCalculator() *ContextSwitchCalculator {
-	return &ContextSwitchCalculator{service: service.NewContextSwitchService()}
+	return &ContextSwitchCalculator{
+		service: service.NewContextSwitchService(),
+	}
 }
 
 func (c *ContextSwitchCalculator) CreateForm() *huh.Form {
@@ -24,11 +28,13 @@ func (c *ContextSwitchCalculator) CreateForm() *huh.Form {
 				Key("reducedIncidents").
 				Title("Reduction in False Alerts/Flaky Builds per Year").
 				Placeholder("e.g. 6000").
+				Value(&c.reducedIncidents).
 				Validate(validateInt),
 			huh.NewInput().
 				Key("hourlyRate").
 				Title("Hourly Dev Rate ($)").
 				Placeholder("e.g. 100").
+				Value(&c.hourlyRate).
 				Validate(validateFloat),
 		),
 	).WithShowHelp(false)
@@ -47,11 +53,8 @@ func (c *ContextSwitchCalculator) GetContext(key string) string {
 }
 
 func (c *ContextSwitchCalculator) GetFormula(form *huh.Form) string {
-	var ri, hr string
-	if form != nil {
-		ri = form.GetString("reducedIncidents")
-		hr = form.GetString("hourlyRate")
-	}
+	ri := getFormField(form, "reducedIncidents", c.reducedIncidents)
+	hr := getFormField(form, "hourlyRate", c.hourlyRate)
 
 	return fmt.Sprintf(`Context Switch Penalty Avoided
 
@@ -63,19 +66,35 @@ Savings ($) =
 		formatFormulaValue(hr, "Hourly Rate"))
 }
 
-func (c *ContextSwitchCalculator) CalculateResult(form *huh.Form) string {
-	ri, _ := strconv.Atoi(form.GetString("reducedIncidents"))
-	hr, _ := strconv.ParseFloat(form.GetString("hourlyRate"), 64)
+func (c *ContextSwitchCalculator) CalculateResult(form *huh.Form) (string, Sentiment) {
+	riStr := getFormField(form, "reducedIncidents", c.reducedIncidents)
+	hrStr := getFormField(form, "hourlyRate", c.hourlyRate)
+
+	if riStr == "" || hrStr == "" {
+		return "", SentimentNone
+	}
+
+	ri, _ := strconv.Atoi(riStr)
+	hr, _ := strconv.ParseFloat(hrStr, 64)
 
 	res := c.service.Calculate(service.ContextSwitchInput{
 		ReducedIncidentsPerYear: ri,
 		HourlyRate:              hr,
 	})
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Warning)
-	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	return fmt.Sprintf("%s\n\nHours Saved: %.1f\nContext Switch Penalty Avoided: %s",
-		titleStyle.Render("=== Context Switch ROI Results ==="),
-		res.HoursSaved,
-		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Warning).MarginBottom(1)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(DefaultTheme.TextNormal)
+
+	str := fmt.Sprintf("%s\n\n%s %.1f\n%s %s",
+		titleStyle.Render("󱔗 CONTEXT SWITCH PENALTY"),
+		labelStyle.Render("Total Hours Saved:"), res.HoursSaved,
+		labelStyle.Render("Annual Savings Avoided:"), valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+
+	return str, SentimentGood
+}
+
+func (c *ContextSwitchCalculator) Reset() {
+	c.reducedIncidents = ""
+	c.hourlyRate = ""
 }

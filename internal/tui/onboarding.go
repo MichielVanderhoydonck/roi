@@ -6,15 +6,21 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 type OnboardingCalculator struct {
-	service *service.OnboardingService
+	service   *service.OnboardingService
+	oldDays   string
+	newDays   string
+	newHires  string
+	dailyRate string
 }
 
 func NewOnboardingCalculator() *OnboardingCalculator {
-	return &OnboardingCalculator{service: service.NewOnboardingService()}
+	return &OnboardingCalculator{
+		service: service.NewOnboardingService(),
+	}
 }
 
 func (c *OnboardingCalculator) CreateForm() *huh.Form {
@@ -24,21 +30,25 @@ func (c *OnboardingCalculator) CreateForm() *huh.Form {
 				Key("oldDays").
 				Title("Old Days to First Deploy").
 				Placeholder("e.g. 10").
+				Value(&c.oldDays).
 				Validate(validateFloat),
 			huh.NewInput().
 				Key("newDays").
 				Title("New Days to First Deploy").
 				Placeholder("e.g. 2").
+				Value(&c.newDays).
 				Validate(validateFloat),
 			huh.NewInput().
 				Key("newHires").
 				Title("Number of New Hires per Year").
 				Placeholder("e.g. 20").
+				Value(&c.newHires).
 				Validate(validateInt),
 			huh.NewInput().
 				Key("dailyRate").
 				Title("Daily Developer Rate ($)").
 				Placeholder("e.g. 600").
+				Value(&c.dailyRate).
 				Validate(validateFloat),
 		),
 	).WithShowHelp(false)
@@ -59,13 +69,10 @@ func (c *OnboardingCalculator) GetContext(key string) string {
 }
 
 func (c *OnboardingCalculator) GetFormula(form *huh.Form) string {
-	var od, nd, nh, dr string
-	if form != nil {
-		od = form.GetString("oldDays")
-		nd = form.GetString("newDays")
-		nh = form.GetString("newHires")
-		dr = form.GetString("dailyRate")
-	}
+	od := getFormField(form, "oldDays", c.oldDays)
+	nd := getFormField(form, "newDays", c.newDays)
+	nh := getFormField(form, "newHires", c.newHires)
+	dr := getFormField(form, "dailyRate", c.dailyRate)
 
 	return fmt.Sprintf(`Onboarding ROI (Time to First Value)
 
@@ -79,11 +86,20 @@ Onboarding Savings ($) =
 		formatFormulaValue(dr, "Daily Rate"))
 }
 
-func (c *OnboardingCalculator) CalculateResult(form *huh.Form) string {
-	od, _ := strconv.ParseFloat(form.GetString("oldDays"), 64)
-	nd, _ := strconv.ParseFloat(form.GetString("newDays"), 64)
-	nh, _ := strconv.Atoi(form.GetString("newHires"))
-	dr, _ := strconv.ParseFloat(form.GetString("dailyRate"), 64)
+func (c *OnboardingCalculator) CalculateResult(form *huh.Form) (string, Sentiment) {
+	odStr := getFormField(form, "oldDays", c.oldDays)
+	ndStr := getFormField(form, "newDays", c.newDays)
+	nhStr := getFormField(form, "newHires", c.newHires)
+	drStr := getFormField(form, "dailyRate", c.dailyRate)
+
+	if odStr == "" || ndStr == "" || nhStr == "" {
+		return "", SentimentNone
+	}
+
+	od, _ := strconv.ParseFloat(odStr, 64)
+	nd, _ := strconv.ParseFloat(ndStr, 64)
+	nh, _ := strconv.Atoi(nhStr)
+	dr, _ := strconv.ParseFloat(drStr, 64)
 
 	res := c.service.Calculate(service.OnboardingInput{
 		OldDays:   od,
@@ -92,10 +108,28 @@ func (c *OnboardingCalculator) CalculateResult(form *huh.Form) string {
 		DailyRate: dr,
 	})
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
-	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	return fmt.Sprintf("%s\n\nDays Saved per Hire: %.1f\nIdle Time Savings:   %s",
-		titleStyle.Render("=== Onboarding ROI Results ==="),
-		res.DaysSavedPerHire,
-		valStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+	sentiment := SentimentGood
+	roiColor := DefaultTheme.Success
+	if res.AnnualSavings < 0 {
+		sentiment = SentimentBad
+		roiColor = DefaultTheme.Critical
+	}
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary).MarginBottom(1)
+	roiStyle := lipgloss.NewStyle().Foreground(roiColor).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(DefaultTheme.TextNormal)
+
+	str := fmt.Sprintf("%s\n\n%s %.1f\n%s %s",
+		titleStyle.Render("󱔗 ONBOARDING EFFICIENCY"),
+		labelStyle.Render("Days Saved per Hire:"), res.DaysSavedPerHire,
+		labelStyle.Render("Annual Idle Time Savings:"), roiStyle.Render(fmt.Sprintf("$%.2f", res.AnnualSavings)))
+
+	return str, sentiment
+}
+
+func (c *OnboardingCalculator) Reset() {
+	c.oldDays = ""
+	c.newDays = ""
+	c.newHires = ""
+	c.dailyRate = ""
 }

@@ -1,23 +1,26 @@
 package tui
 
 import (
+	"strings"
+
+	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/huh"
 )
 
 func (a *App) renderHeader() string {
 	headerStyle := lipgloss.NewStyle().
 		Foreground(DefaultTheme.Title).
 		Bold(true).
-		Padding(0, 1)
+		Padding(0, 1).
+		MarginBottom(1)
 
-	focusText := " [ Menu ]"
+	focusText := "   Menu"
 	if a.focus == focusForm {
-		focusText = " [ Calculator ]"
+		focusText = "   Calculator"
 	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Left,
-		headerStyle.Render("ROI Calculator"),
+		headerStyle.Render("ROI CALCULATOR"),
 		lipgloss.NewStyle().Foreground(DefaultTheme.TextDim).Render(focusText),
 	)
 }
@@ -29,22 +32,19 @@ func (a *App) renderFooter() string {
 
 	var helpStr string
 	if a.focus == focusMenu {
-		helpStr = "(esc: close • enter/tab/→: select • ctrl+c: quit)"
+		helpStr = "esc: quit • enter: select • j/k: navigate • ctrl+c: quit"
 	} else {
-		activeForm := a.getActiveForm()
-		if activeForm != nil && activeForm.State == huh.StateCompleted {
-			helpStr = "(esc: back to menu • enter: edit form • ctrl+r: clear form • ctrl+c: quit)"
-		} else {
-			helpStr = "(esc: back to menu • ctrl+r: clear form • ctrl+c: quit)"
-		}
+		helpStr = "esc: menu • tab/enter: next • shift+tab: prev • ctrl+r: reset • ctrl+c: quit"
 	}
-	return footerStyle.Render(helpStr)
+	return footerStyle.Render("─── " + helpStr)
 }
 
-func (a *App) calculateLayoutWidths() (left int, right int) {
+func (a *App) calculateLayoutWidths() (left, middle, right int) {
 	left = max(30, min(45, a.width*30/100))
-	right = max(0, a.width-left)
-	return left, right
+	remaining := max(0, a.width-left)
+	middle = remaining * 55 / 100
+	right = max(0, remaining-middle)
+	return left, middle, right
 }
 
 func (a *App) renderLeftPanel(width, height int) string {
@@ -62,54 +62,92 @@ func (a *App) renderLeftPanel(width, height int) string {
 	contentWidth := max(0, width-w)
 	panelHeight := max(0, height-h)
 
+	a.menuList.SetSize(contentWidth, panelHeight)
+
 	return style.
-		Width(contentWidth).
-		Height(panelHeight).
+		Width(width).
+		Height(height).
 		Render(a.menuList.View())
 }
 
-func (a *App) renderRightPanel(width, height int) string {
-	formulaStr, contextStr := a.getCurrentPanelStrings()
-
-	bottomHeight := max(6, height*25/100)
-	topHeight := max(0, height-bottomHeight)
-
-	activeForm := a.getActiveForm()
-	topContent := a.renderTopContent(formulaStr, activeForm)
-	bottomContent := a.renderBottomContent(contextStr)
-
+func (a *App) renderCalculationPanel(width, height int, formulaStr string) string {
 	borderColor := DefaultTheme.BorderDim
 	if a.focus == focusForm {
 		borderColor = DefaultTheme.BorderActive
 	}
 
-	topStyle := lipgloss.NewStyle().
+	style := lipgloss.NewStyle().
 		Padding(0, 1).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor)
 
-	bottomStyle := lipgloss.NewStyle().
+	w, h := style.GetFrameSize()
+	contentWidth := max(0, width-w)
+	panelHeight := max(0, height-h)
+
+	activeForm := a.getActiveForm()
+	content := a.renderTopContent(contentWidth, formulaStr, activeForm)
+
+	content = lipgloss.NewStyle().MaxHeight(panelHeight).Render(content)
+
+	return style.
+		Width(width).
+		Height(height).
+		Render(content)
+}
+
+func (a *App) renderResultPanel(width, height int) string {
+	hasResult := a.resultText != "" && !strings.Contains(a.resultText, "Enter time values")
+	borderColor := DefaultTheme.BorderDim
+	if hasResult {
+		switch a.resultSentiment {
+		case SentimentGood:
+			borderColor = DefaultTheme.Success
+		case SentimentBad:
+			borderColor = DefaultTheme.Critical
+		}
+	}
+
+	style := lipgloss.NewStyle().
 		Padding(0, 1).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(DefaultTheme.BorderDim)
+		BorderForeground(borderColor)
 
-	topW, topH := topStyle.GetFrameSize()
-	topBox := topStyle.
-		Width(max(0, width-topW)).
-		Height(max(0, topHeight-topH)).
-		Render(topContent)
+	w, _ := style.GetFrameSize()
+	contentWidth := max(0, width-w)
 
-	bottomW, bottomH := bottomStyle.GetFrameSize()
-	bottomBox := bottomStyle.
-		Width(max(0, width-bottomW)).
-		Height(max(0, bottomHeight-bottomH)).
-		Render(bottomContent)
+	var content string
+	if hasResult {
+		content = lipgloss.NewStyle().
+			Width(contentWidth).
+			Render(a.resultText)
+	} else {
+		header := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(DefaultTheme.TextDim).
+			Render("󰄬 CALCULATION RESULT")
 
-	return lipgloss.JoinVertical(lipgloss.Left, topBox, bottomBox)
+		var placeholderText string
+		if a.resultText != "" {
+			placeholderText = a.resultText
+		} else {
+			placeholderText = lipgloss.NewStyle().
+				Foreground(DefaultTheme.TextDim).
+				Render("Results will appear here\nas you fill in the form...")
+		}
+
+		content = lipgloss.NewStyle().
+			Width(contentWidth).
+			Render(header + "\n\n" + placeholderText)
+	}
+
+	return style.
+		Width(width).
+		Height(height).
+		Render(content)
 }
 
 func (a *App) getCurrentPanelStrings() (formulaStr, contextStr string) {
-	selectedItem := a.menuList.SelectedItem().(item)
 	activeForm := a.getActiveForm()
 	var fieldKey string
 
@@ -119,41 +157,47 @@ func (a *App) getCurrentPanelStrings() (formulaStr, contextStr string) {
 		}
 	}
 
-	formulaStr = selectedItem.calc.GetFormula(activeForm)
-	if activeForm.State != huh.StateCompleted {
-		contextStr = selectedItem.calc.GetContext(fieldKey)
-	}
+	formulaStr = a.activeCalc.GetFormula(activeForm)
+	contextStr = a.activeCalc.GetContext(fieldKey)
 
 	return formulaStr, contextStr
 }
 
-func (a *App) renderTopContent(formulaStr string, activeForm *huh.Form) string {
+func (a *App) renderTopContent(width int, formulaStr string, activeForm *huh.Form) string {
 	formulaStyle := lipgloss.NewStyle().
 		Foreground(DefaultTheme.Title).
 		Bold(true).
 		MarginBottom(1)
 
-	content := formulaStyle.Render(formulaStr) + "\n\n" + activeForm.View()
+	formView := lipgloss.NewStyle().
+		Width(width).
+		MaxWidth(width).
+		Render(activeForm.WithWidth(width).View())
 
-	if activeForm.State == huh.StateCompleted {
-		resultBox := lipgloss.NewStyle().
-			Padding(1, 2).
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(DefaultTheme.Primary).
-			Render(a.resultText)
-		content += "\n" + resultBox
-	}
-	return content
+	return formulaStyle.Render(formulaStr) + "\n\n" + formView
 }
 
-func (a *App) renderBottomContent(contextStr string) string {
+func (a *App) renderContextPanel(width int, contextStr string) string {
+	style := lipgloss.NewStyle().
+		Padding(0, 1).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(DefaultTheme.BorderDim)
+
+	w, _ := style.GetFrameSize()
+	contentWidth := max(0, width-w)
+
 	contextHeader := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(DefaultTheme.TextDim).
-		Render("FIELD CONTEXT") + "\n"
+		Render(" CONTEXT")
 
 	contextStyle := lipgloss.NewStyle().
-		Foreground(DefaultTheme.TextNormal)
+		Foreground(DefaultTheme.TextNormal).
+		Width(contentWidth)
 
-	return contextHeader + contextStyle.Render(contextStr)
+	content := contextHeader + "\n" + contextStyle.Render(contextStr)
+
+	return style.
+		Width(width).
+		Render(content)
 }

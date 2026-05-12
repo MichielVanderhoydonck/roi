@@ -6,15 +6,19 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 type CostOfDelayCalculator struct {
-	service *service.CostOfDelayService
+	service        *service.CostOfDelayService
+	monthlyRevenue string
+	daysDelayed    string
 }
 
 func NewCostOfDelayCalculator() *CostOfDelayCalculator {
-	return &CostOfDelayCalculator{service: service.NewCostOfDelayService()}
+	return &CostOfDelayCalculator{
+		service: service.NewCostOfDelayService(),
+	}
 }
 
 func (c *CostOfDelayCalculator) CreateForm() *huh.Form {
@@ -24,11 +28,13 @@ func (c *CostOfDelayCalculator) CreateForm() *huh.Form {
 				Key("monthlyRevenue").
 				Title("Estimated Monthly Revenue of Feature ($)").
 				Placeholder("e.g. 300000").
+				Value(&c.monthlyRevenue).
 				Validate(validateFloat),
 			huh.NewInput().
 				Key("daysDelayed").
 				Title("Days Delayed").
 				Placeholder("e.g. 15").
+				Value(&c.daysDelayed).
 				Validate(validateFloat),
 		),
 	).WithShowHelp(false)
@@ -47,11 +53,8 @@ func (c *CostOfDelayCalculator) GetContext(key string) string {
 }
 
 func (c *CostOfDelayCalculator) GetFormula(form *huh.Form) string {
-	var mr, dd string
-	if form != nil {
-		mr = form.GetString("monthlyRevenue")
-		dd = form.GetString("daysDelayed")
-	}
+	mr := getFormField(form, "monthlyRevenue", c.monthlyRevenue)
+	dd := getFormField(form, "daysDelayed", c.daysDelayed)
 
 	return fmt.Sprintf(`Cost of Delay
 
@@ -62,18 +65,41 @@ Revenue Lost ($) =
 		formatFormulaValue(dd, "Days Delayed"))
 }
 
-func (c *CostOfDelayCalculator) CalculateResult(form *huh.Form) string {
-	mr, _ := strconv.ParseFloat(form.GetString("monthlyRevenue"), 64)
-	dd, _ := strconv.ParseFloat(form.GetString("daysDelayed"), 64)
+func (c *CostOfDelayCalculator) CalculateResult(form *huh.Form) (string, Sentiment) {
+	mrStr := getFormField(form, "monthlyRevenue", c.monthlyRevenue)
+	ddStr := getFormField(form, "daysDelayed", c.daysDelayed)
+
+	if mrStr == "" || ddStr == "" {
+		return "", SentimentNone
+	}
+
+	mr, _ := strconv.ParseFloat(mrStr, 64)
+	dd, _ := strconv.ParseFloat(ddStr, 64)
 
 	res := c.service.Calculate(service.CostOfDelayInput{
 		EstimatedMonthlyRevenue: mr,
 		DaysDelayed:             dd,
 	})
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
-	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Warning)
-	return fmt.Sprintf("%s\n\nRevenue Lost (Cost of Delay): %s",
-		titleStyle.Render("=== Cost of Delay Results ==="),
-		valStyle.Render(fmt.Sprintf("$%.2f", res.CostOfDelay)))
+	sentiment := SentimentGood
+	roiColor := DefaultTheme.Success
+	if res.CostOfDelay > 0 {
+		sentiment = SentimentBad
+		roiColor = DefaultTheme.Critical
+	}
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary).MarginBottom(1)
+	roiStyle := lipgloss.NewStyle().Foreground(roiColor).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(DefaultTheme.TextNormal)
+
+	str := fmt.Sprintf("%s\n\n%s %s",
+		titleStyle.Render("󰚌 COST OF DELAY IMPACT"),
+		labelStyle.Render("Total Revenue Lost:"), roiStyle.Render(fmt.Sprintf("$%.2f", res.CostOfDelay)))
+
+	return str, sentiment
+}
+
+func (c *CostOfDelayCalculator) Reset() {
+	c.monthlyRevenue = ""
+	c.daysDelayed = ""
 }

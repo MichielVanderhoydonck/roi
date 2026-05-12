@@ -7,15 +7,22 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/MichielVanderhoydonck/roi/internal/service"
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 type ProductivityCalculator struct {
-	service *service.ProductivityService
+	service     *service.ProductivityService
+	timeBefore  string
+	timeAfter   string
+	executions  string
+	hourlyRate  string
+	maintenance string
 }
 
 func NewProductivityCalculator() *ProductivityCalculator {
-	return &ProductivityCalculator{service: service.NewProductivityService()}
+	return &ProductivityCalculator{
+		service: service.NewProductivityService(),
+	}
 }
 
 func (c *ProductivityCalculator) CreateForm() *huh.Form {
@@ -25,26 +32,31 @@ func (c *ProductivityCalculator) CreateForm() *huh.Form {
 				Key("timeBefore").
 				Title("Time spent on task BEFORE").
 				Placeholder("e.g. 4h, 30m").
+				Value(&c.timeBefore).
 				Validate(validateDuration),
 			huh.NewInput().
 				Key("timeAfter").
 				Title("Time spent on task AFTER").
 				Placeholder("e.g. 5m, 10s").
+				Value(&c.timeAfter).
 				Validate(validateDuration),
 			huh.NewInput().
 				Key("executions").
 				Title("Executions per year").
 				Placeholder("e.g. 1000").
+				Value(&c.executions).
 				Validate(validateInt),
 			huh.NewInput().
 				Key("hourlyRate").
 				Title("Average Developer Hourly Rate ($)").
 				Placeholder("e.g. 75").
+				Value(&c.hourlyRate).
 				Validate(validateFloat),
 			huh.NewInput().
 				Key("maintenance").
 				Title("Cost of Building/Maintaining Tool ($)").
 				Placeholder("e.g. 1000").
+				Value(&c.maintenance).
 				Validate(validateFloat),
 		),
 	).WithShowHelp(false)
@@ -66,14 +78,11 @@ func (c *ProductivityCalculator) GetContext(key string) string {
 }
 
 func (c *ProductivityCalculator) GetFormula(form *huh.Form) string {
-	var tb, ta, execs, hr, mc string
-	if form != nil {
-		tb = form.GetString("timeBefore")
-		ta = form.GetString("timeAfter")
-		execs = form.GetString("executions")
-		hr = form.GetString("hourlyRate")
-		mc = form.GetString("maintenance")
-	}
+	tb := getFormField(form, "timeBefore", c.timeBefore)
+	ta := getFormField(form, "timeAfter", c.timeAfter)
+	execs := getFormField(form, "executions", c.executions)
+	hr := getFormField(form, "hourlyRate", c.hourlyRate)
+	mc := getFormField(form, "maintenance", c.maintenance)
 
 	return fmt.Sprintf(`Developer Productivity ROI (Time Saved)
 
@@ -89,12 +98,22 @@ Annual ROI ($) =
 		formatFormulaValue(mc, "Maintenance Cost"))
 }
 
-func (c *ProductivityCalculator) CalculateResult(form *huh.Form) string {
-	tb, _ := time.ParseDuration(form.GetString("timeBefore"))
-	ta, _ := time.ParseDuration(form.GetString("timeAfter"))
-	execs, _ := strconv.Atoi(form.GetString("executions"))
-	hr, _ := strconv.ParseFloat(form.GetString("hourlyRate"), 64)
-	mc, _ := strconv.ParseFloat(form.GetString("maintenance"), 64)
+func (c *ProductivityCalculator) CalculateResult(form *huh.Form) (string, Sentiment) {
+	tbStr := getFormField(form, "timeBefore", c.timeBefore)
+	taStr := getFormField(form, "timeAfter", c.timeAfter)
+	execsStr := getFormField(form, "executions", c.executions)
+	hrStr := getFormField(form, "hourlyRate", c.hourlyRate)
+	mcStr := getFormField(form, "maintenance", c.maintenance)
+
+	if tbStr == "" || taStr == "" || execsStr == "" {
+		return lipgloss.NewStyle().Foreground(DefaultTheme.TextDim).Render("Enter time values and executions to see ROI..."), SentimentNone
+	}
+
+	tb, _ := time.ParseDuration(tbStr)
+	ta, _ := time.ParseDuration(taStr)
+	execs, _ := strconv.Atoi(execsStr)
+	hr, _ := strconv.ParseFloat(hrStr, 64)
+	mc, _ := strconv.ParseFloat(mcStr, 64)
 
 	res := c.service.Calculate(service.ProductivityInput{
 		TimeBefore:        tb,
@@ -104,11 +123,31 @@ func (c *ProductivityCalculator) CalculateResult(form *huh.Form) string {
 		MaintenanceCost:   mc,
 	})
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary)
-	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	return fmt.Sprintf("%s\n\nTotal Time Saved: %s\nGross Savings:    %s\nNet ROI:          %s",
-		titleStyle.Render("=== Productivity ROI Results ==="),
-		res.TimeSaved.String(),
-		valStyle.Render(fmt.Sprintf("$%.2f", res.GrossSavings)),
-		valStyle.Render(fmt.Sprintf("$%.2f", res.NetROI)))
+	sentiment := SentimentGood
+	roiColor := DefaultTheme.Success
+	if res.NetROI < 0 {
+		sentiment = SentimentBad
+		roiColor = DefaultTheme.Critical
+	}
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(DefaultTheme.Primary).MarginBottom(1)
+	valStyle := lipgloss.NewStyle().Foreground(DefaultTheme.Success).Bold(true)
+	roiStyle := lipgloss.NewStyle().Foreground(roiColor).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(DefaultTheme.TextNormal)
+
+	str := fmt.Sprintf("%s\n\n%s %s\n%s %s\n%s %s",
+		titleStyle.Render("󰄬 PRODUCTIVITY IMPACT"),
+		labelStyle.Render("Total Time Saved:"), valStyle.Render(res.TimeSaved.String()),
+		labelStyle.Render("Gross Savings:"), valStyle.Render(fmt.Sprintf("$%.2f", res.GrossSavings)),
+		labelStyle.Render("Net Annual ROI:"), roiStyle.Render(fmt.Sprintf("$%.2f", res.NetROI)))
+
+	return str, sentiment
+}
+
+func (c *ProductivityCalculator) Reset() {
+	c.timeBefore = ""
+	c.timeAfter = ""
+	c.executions = ""
+	c.hourlyRate = ""
+	c.maintenance = ""
 }
